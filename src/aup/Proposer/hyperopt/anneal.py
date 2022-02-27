@@ -119,11 +119,7 @@ class AnnealingAlgo(SuggestAlgo):
             # get either this docs own tid or the one that it's from
             tid = doc['tid']
             loss = domain.loss(doc['result'], doc['spec'])
-            if loss is None:
-                # -- associate infinite loss to new/running/failed jobs
-                loss = float('inf')
-            else:
-                loss = float(loss)
+            loss = float('inf') if loss is None else float(loss)
             doc_by_tid[tid] = (doc, loss)
         self.tid_docs_losses = sorted(doc_by_tid.items())
         self.tids = np.asarray([t for (t, (d, l)) in self.tid_docs_losses])
@@ -164,8 +160,7 @@ class AnnealingAlgo(SuggestAlgo):
             for tid in self.best_tids:
                 if tid in tid_set:
                     idx = tids.index(tid)
-                    rval = losses[idx], tid, vals[idx]
-                    return rval
+                    return losses[idx], tid, vals[idx]
 
         # -- choose a new good seed point
         good_idx = self.rng.geometric(old_div(1.0, self.avg_best_idx), size=size) - 1
@@ -213,18 +208,17 @@ class AnnealingAlgo(SuggestAlgo):
 
         """
         n_observations = len(self.node_vals[label])
-        if n_observations > 0:
-            # -- Pick a previous trial on which to base the new sample
-            size = memo[node.arg['size']]
-            loss, tid, val = self.choose_ltv(label, size=size)
-            try:
-                handler = getattr(self, 'hp_%s' % node.name)
-            except AttributeError:
-                raise NotImplementedError('Annealing', node.name)
-            return handler(memo, node, label, tid, val)
-        else:
+        if n_observations <= 0:
             # -- Draw the new sample from the prior
             return ExprEvaluator.on_node(self, memo, node)
+        # -- Pick a previous trial on which to base the new sample
+        size = memo[node.arg['size']]
+        loss, tid, val = self.choose_ltv(label, size=size)
+        try:
+            handler = getattr(self, 'hp_%s' % node.name)
+        except AttributeError:
+            raise NotImplementedError('Annealing', node.name)
+        return handler(memo, node, label, tid, val)
 
     def hp_uniform(self, memo, node, label, tid, val,
                    log_scale=False,
@@ -249,10 +243,7 @@ class AnnealingAlgo(SuggestAlgo):
         Returns: a list with one value in it: the suggested value for this
         hyperparameter
         """
-        if log_scale:
-            midpt = np.log(val)
-        else:
-            midpt = val
+        midpt = np.log(val) if log_scale else val
         high = memo[node.arg['high']]
         low = memo[node.arg['low']]
         width = (high - low) * self.shrinking(label)
@@ -323,9 +314,8 @@ class AnnealingAlgo(SuggestAlgo):
             prior = 1.0
         prior = self.shrinking(label)
         p = (1 - prior) * counts + prior * (old_div(1.0, upper))
-        rval = categorical(p=p, upper=upper, rng=self.rng,
+        return categorical(p=p, upper=upper, rng=self.rng,
                            size=memo[node.arg['size']])
-        return rval
 
     def hp_categorical(self, memo, node, label, tid, val):
         """
@@ -355,11 +345,10 @@ class AnnealingAlgo(SuggestAlgo):
         new_p = (1 - prior) * counts + prior * p
         assert new_p.ndim == 2
         rval = categorical(p=new_p, rng=self.rng, size=size)
-        if p_orig.ndim == 1:
-            assert len(rval) == 1
-            return rval[0]
-        else:
+        if p_orig.ndim != 1:
             return rval
+        assert len(rval) == 1
+        return rval[0]
 
     def hp_normal(self, memo, node, label, tid, val):
         """

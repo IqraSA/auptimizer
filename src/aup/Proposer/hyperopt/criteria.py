@@ -52,16 +52,12 @@ def logEI_gaussian(mean, var, thresh):
         is_scalar = False
 
     if is_scalar:
-        if score < 0:
-            pdf = n.logpdf(score)
-            r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
-            rval = np.log(sigma) + pdf + np.log1p(-r)
-            if not np.isfinite(rval):
-                return -np.inf
-            else:
-                return rval
-        else:
+        if score >= 0:
             return np.log(sigma) + np.log(score * n.cdf(score) + n.pdf(score))
+        pdf = n.logpdf(score)
+        r = np.exp(np.log(-score) + n.logcdf(score) - pdf)
+        rval = np.log(sigma) + pdf + np.log1p(-r)
+        return -np.inf if not np.isfinite(rval) else rval
     else:
         score = np.asarray(score)
         rval = np.zeros_like(score)

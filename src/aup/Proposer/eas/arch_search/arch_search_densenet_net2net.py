@@ -14,9 +14,9 @@ def get_net_str(net_configs):
 		net_str = []
 		for block in net_config.blocks:
 			if isinstance(block, DenseBlock):
-				block_str = []
-				for miniblock in block.miniblocks:
-					block_str.append('g%d' % miniblock.out_features_dim)
+				block_str = [
+				    'g%d' % miniblock.out_features_dim for miniblock in block.miniblocks
+				]
 				block_str = '-'.join(block_str)
 				net_str.append(block_str)
 			else:
@@ -44,26 +44,25 @@ def get_net_seq(net_configs, vocabulary, num_steps):
 
 
 def get_block_layer_num(net_configs):
+	block_layer_num = []
 	if len(net_configs) == 1:
 		net_config = net_configs[0]
-		block_layer_num = []
-		for block in net_config.blocks:
-			if isinstance(block, DenseBlock):
-				block_layer_num.append(len(block.miniblocks))
+		block_layer_num.extend(
+		    len(block.miniblocks) for block in net_config.blocks
+		    if isinstance(block, DenseBlock))
 		return np.array([block_layer_num])
 	else:
-		block_layer_num = []
-		for net_config in net_configs:
-			block_layer_num.append(get_block_layer_num([net_config]))
+		block_layer_num.extend(
+		    get_block_layer_num([net_config]) for net_config in net_configs)
 		return np.concatenate(block_layer_num, axis=0)
 
 
 def apply_wider_decision(wider_decision, net_configs, growth_rate_list, noise):
+	decision_mask = []
 	if len(net_configs) == 1:
 		decision = wider_decision[0]
 		net_config = net_configs[0]
 		_pt = 0
-		decision_mask = []
 		for block_idx, block in enumerate(net_config.blocks):
 			if isinstance(block, DenseBlock):
 				for miniblock_idx, miniblock in enumerate(block.miniblocks):
@@ -97,7 +96,6 @@ def apply_wider_decision(wider_decision, net_configs, growth_rate_list, noise):
 		decision_mask += [0.0] * (len(decision) - len(decision_mask))
 		return np.array([decision_mask])
 	else:
-		decision_mask = []
 		for _i, net_config in enumerate(net_configs):
 			decision = wider_decision[_i]
 			mask = apply_wider_decision([decision], [net_config], growth_rate_list, noise)
@@ -160,7 +158,7 @@ def widen_transition(net_configs, noise):
 			
 
 def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, max_episodes):
-	growth_rate_list = [_i for _i in range(4, 50, 2)]
+	growth_rate_list = list(range(4, 50, 2))
 	# encoder config
 	layer_token_list = ['g%d' % growth_rate for growth_rate in growth_rate_list]
 	encoder_config = {
@@ -171,7 +169,7 @@ def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, ma
 		'rnn_type': 'bi_lstm',
 		'rnn_layers': 1,
 	}
-	
+
 	# wider actor config
 	wider_actor_config = {
 		'out_dim': 1,
@@ -179,7 +177,7 @@ def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, ma
 		'net_type': 'simple',
 		'net_config': None,
 	}
-	
+
 	# deeper actor config
 	deeper_actor_config = {
 		'decision_num': 2,
@@ -189,25 +187,25 @@ def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, ma
 		'rnn_layers': 1,
 		'attention_config': None,
 	}
-	
+
 	# meta-controller config
 	entropy_penalty = 1e-5
 	learning_rate = 2e-3
 	opt_config = ['adam', {}]
-	
+
 	# net2net noise config
 	noise_config = {
 		'wider': {'type': 'normal', 'ratio': 1e-2},
 		'deeper': {'type': 'normal', 'ratio': 1e-3},
 	}
-	
+
 	# episode config
 	episode_config = {
 		'batch_size': 10,
 		'wider_action_num': 10,
 		'deeper_action_num': 5,
 	}
-	
+
 	# arch search run config
 	arch_search_run_config = {
 		'n_epochs': 20,
@@ -217,72 +215,72 @@ def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, ma
 		'batch_size': 64,
 		'include_extra': False,
 	}
-	
+
 	# reward config
 	reward_config = {
 		'func': 'tan',
 		'decay': 0.95,
 	}
-	
+
 	arch_manager = ArchManager(start_net_path, arch_search_folder, net_pool_folder)
 	_, run_config, _ = arch_manager.get_start_net()
 	run_config.update(arch_search_run_config)
-	
+
 	encoder = EncoderNet(**encoder_config)
 	wider_actor = WiderActorNet(**wider_actor_config)
 	deeper_actor = DeeperActorNet(**deeper_actor_config)
 	meta_controller = ReinforceNet2NetController(arch_manager.meta_controller_path, entropy_penalty,
 												 encoder, wider_actor, deeper_actor, opt_config)
 	meta_controller.load()
-	
+
 	for _i in range(arch_manager.episode + 1, max_episodes + 1):
 		print('episode. %d start. current time: %s' % (_i, strftime("%a, %d %b %Y %H:%M:%S", gmtime())))
 		start_time = time()
-		
+
 		nets = [arch_manager.get_start_net(copy=True) for _ in range(episode_config['batch_size'])]
 		net_configs = [net_config for net_config, _, _ in nets]
-		
+
 		# feed_dict for update the controller
 		wider_decision_trajectory, wider_decision_mask = [], []
 		deeper_decision_trajectory, deeper_decision_mask = [], []
 		deeper_block_layer_num = []
 		encoder_input_seq, encoder_seq_len = [], []
 		wider_seg_deeper = 0
-		
+
 		# on-policy training
 		for _j in range(episode_config['wider_action_num']):
 			input_seq, seq_len = get_net_seq(net_configs, encoder.vocab, encoder.num_steps)
 			wider_decision, wider_probs = meta_controller.sample_wider_decision(input_seq, seq_len)
 			# modify net config according to wider_decision
 			wider_mask = apply_wider_decision(wider_decision, net_configs, growth_rate_list, noise_config)
-			
+
 			wider_decision_trajectory.append(wider_decision)
 			wider_decision_mask.append(wider_mask)
 			wider_seg_deeper += len(net_configs)
 			encoder_input_seq.append(input_seq)
 			encoder_seq_len.append(seq_len)
-		
+
 		for _j in range(episode_config['deeper_action_num']):
 			input_seq, seq_len = get_net_seq(net_configs, encoder.vocab, encoder.num_steps)
 			block_layer_num = get_block_layer_num(net_configs)
 			deeper_decision, deeper_probs = meta_controller.sample_deeper_decision(input_seq, seq_len, block_layer_num)
 			# modify net config according to deeper_decision
 			deeper_mask = apply_deeper_decision(deeper_decision, net_configs, noise_config)
-			
+
 			deeper_decision_trajectory.append(deeper_decision)
 			deeper_decision_mask.append(deeper_mask)
 			deeper_block_layer_num.append(block_layer_num)
 			encoder_input_seq.append(input_seq)
 			encoder_seq_len.append(seq_len)
-		
+
 		widen_transition(net_configs, noise_config)
-		
+
 		run_configs = [run_config] * len(net_configs)
 		net_str_list = get_net_str(net_configs)
-		
+
 		net_vals = arch_manager.get_net_vals(net_str_list, net_configs, run_configs)
 		rewards = arch_manager.reward(net_vals, reward_config)
-		
+
 		# prepare feed dict
 		encoder_input_seq = np.concatenate(encoder_input_seq, axis=0)
 		encoder_seq_len = np.concatenate(encoder_seq_len, axis=0)
@@ -303,12 +301,12 @@ def arch_search_densenet(start_net_path, arch_search_folder, net_pool_folder, ma
 		rewards = np.concatenate([rewards for _ in range(episode_config['wider_action_num'] +
 														 episode_config['deeper_action_num'])])
 		rewards /= episode_config['batch_size']
-		
+
 		# update the agent
 		meta_controller.update_controller(learning_rate, wider_seg_deeper, wider_decision_trajectory,
 										  wider_decision_mask, deeper_decision_trajectory, deeper_decision_mask,
 										  rewards, deeper_block_layer_num, encoder_input_seq, encoder_seq_len)
-		
+
 		meta_controller.save()
 		# episode end
 		time_per_episode = time() - start_time

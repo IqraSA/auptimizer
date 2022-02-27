@@ -57,10 +57,7 @@ def adaptive_parzen_sampler(name):
 def categorical_lpdf(sample, p, upper):
     """
     """
-    if sample.size:
-        return np.log(np.asarray(p)[sample])
-    else:
-        return np.asarray([])
+    return np.log(np.asarray(p)[sample]) if sample.size else np.asarray([])
 
 
 # -- Bounded Gaussian Mixture Model (BGMM)
@@ -93,10 +90,7 @@ def GMM1(weights, mus, sigmas, low=None, high=None, q=None, rng=None,
                 samples.append(draw)
     samples = np.reshape(np.asarray(samples), size)
     # print 'SAMPLES', samples
-    if q is None:
-        return samples
-    else:
-        return np.round(old_div(samples, q)) * q
+    return samples if q is None else np.round(old_div(samples, q)) * q
 
 
 @scope.define
@@ -204,8 +198,7 @@ def lognormal_lpdf(x, mu, sigma):
     sigma = np.maximum(sigma, EPS)
     Z = sigma * x * np.sqrt(2 * np.pi)
     E = 0.5 * (old_div((np.log(x) - mu), sigma)) ** 2
-    rval = -E - np.log(Z)
-    return rval
+    return -E - np.log(Z)
 
 
 @scope.define
@@ -337,9 +330,7 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
         order = np.argsort(mus)
         mus = mus[order]
         sigma = np.zeros_like(mus)
-        sigma[1:-1] = np.maximum(
-            mus[1:-1] - mus[0:-2],
-            mus[2:] - mus[1:-1])
+        sigma[1:-1] = np.maximum(mus[1:-1] - mus[:-2], mus[2:] - mus[1:-1])
         if len(mus) > 2:
             lsigma = mus[2] - mus[0]
             usigma = mus[-1] - mus[-3]
@@ -374,11 +365,6 @@ def adaptive_parzen_normal_orig(mus, prior_weight, prior_mu, prior_sigma):
     weights[0] = prior_weight
 
     weights = old_div(weights, weights.sum())
-    if 0:
-        print('WEIGHTS', weights)
-        print('MUS', mus)
-        print('SIGMA', sigma)
-
     return weights, mus, sigma
 
 
@@ -437,8 +423,9 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
         srtd_mus[prior_pos + 1:] = mus[order[prior_pos:]]
         sigma = np.zeros_like(srtd_mus)
         sigma[1:-1] = np.maximum(
-            srtd_mus[1:-1] - srtd_mus[0:-2],
-            srtd_mus[2:] - srtd_mus[1:-1])
+            srtd_mus[1:-1] - srtd_mus[:-2], srtd_mus[2:] - srtd_mus[1:-1]
+        )
+
         lsigma = srtd_mus[1] - srtd_mus[0]
         usigma = srtd_mus[-1] - srtd_mus[-2]
         sigma[0] = lsigma
@@ -469,11 +456,6 @@ def adaptive_parzen_normal(mus, prior_weight, prior_mu, prior_sigma,
     assert np.all(sigma > 0), (sigma.min(), minsigma, maxsigma)
 
     srtd_weights /= srtd_weights.sum()
-    if 0:
-        print('WEIGHTS', srtd_weights)
-        print('MUS', srtd_mus)
-        print('SIGMA', sigma)
-
     return srtd_weights, srtd_mus, sigma
 
 #
@@ -517,9 +499,8 @@ def ap_loguniform_sampler(obs, prior_weight, low, high,
     prior_sigma = 1.0 * (high - low)
     weights, mus, sigmas = scope.adaptive_parzen_normal(
         scope.log(obs), prior_weight, prior_mu, prior_sigma)
-    rval = scope.LGMM1(weights, mus, sigmas, low=low, high=high,
+    return scope.LGMM1(weights, mus, sigmas, low=low, high=high,
                        size=size, rng=rng)
-    return rval
 
 
 @adaptive_parzen_sampler('qloguniform')
@@ -563,8 +544,7 @@ def ap_qnormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
 def ap_loglognormal_sampler(obs, prior_weight, mu, sigma, size=(), rng=None):
     weights, mus, sigmas = scope.adaptive_parzen_normal(
         scope.log(obs), prior_weight, mu, sigma)
-    rval = scope.LGMM1(weights, mus, sigmas, size=size, rng=rng)
-    return rval
+    return scope.LGMM1(weights, mus, sigmas, size=size, rng=rng)
 
 
 @adaptive_parzen_sampler('qlognormal')
@@ -572,8 +552,7 @@ def ap_qlognormal_sampler(obs, prior_weight, mu, sigma, q, size=(), rng=None):
     log_obs = scope.log(scope.maximum(obs, EPS))
     weights, mus, sigmas = scope.adaptive_parzen_normal(
         log_obs, prior_weight, mu, sigma)
-    rval = scope.LGMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
-    return rval
+    return scope.LGMM1(weights, mus, sigmas, q=q, size=size, rng=rng)
 
 
 # -- Categorical
@@ -638,9 +617,6 @@ def ap_filter_trials(o_idxs, o_vals, l_idxs, l_vals, gamma,
 
     keep_idxs = set(l_idxs[l_order[:n_below]])
     below = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
-
-    if 0:
-        print('DEBUG: thresh', l_vals[l_order[:n_below]])
 
     keep_idxs = set(l_idxs[l_order[n_below:]])
     above = [v for i, v in zip(o_idxs, o_vals) if i in keep_idxs]
@@ -709,7 +685,7 @@ def build_posterior(specs, prior_idxs, prior_vals, obs_idxs, obs_vals,
                 # above_llik = GMM1_lpdf( b_post, *adaptive_parzen_normal(obs_above, ...))
 
                 assert a_post.name == b_post.name
-                fn_lpdf = getattr(scope, a_post.name + '_lpdf')
+                fn_lpdf = getattr(scope, f'{a_post.name}_lpdf')
                 a_kwargs = dict([(n, a) for n, a in a_post.named_args
                                  if n not in ('rng', 'size')])
                 b_kwargs = dict([(n, a) for n, a in b_post.named_args
@@ -836,26 +812,19 @@ def suggest(new_ids, domain, trials, seed,
     tt = time.time() - t0
     logger.info('tpe_transform took %f seconds' % tt)
 
-    best_docs = dict()
-    best_docs_loss = dict()
+    best_docs = {}
+    best_docs_loss = {}
     for doc in trials.trials:
         # get either this docs own tid or the one that it's from
         tid = doc['misc'].get('from_tid', doc['tid'])
         loss = domain.loss(doc['result'], doc['spec'])
-        if loss is None:
-            # -- associate infinite loss to new/running/failed jobs
-            loss = float('inf')
-        else:
-            loss = float(loss)
+        loss = float('inf') if loss is None else float(loss)
         best_docs_loss.setdefault(tid, loss)
         if loss <= best_docs_loss[tid]:
             best_docs_loss[tid] = loss
             best_docs[tid] = doc
 
-    tid_docs = list(best_docs.items())
-    # -- sort docs by order of suggestion
-    #    so that linear_forgetting removes the oldest ones
-    tid_docs.sort()
+    tid_docs = sorted(best_docs.items())
     losses = [best_docs_loss[k] for k, v in tid_docs]
     tids = [k for k, v in tid_docs]
     docs = [v for k, v in tid_docs]
@@ -910,7 +879,5 @@ def suggest(new_ids, domain, trials, seed,
     miscs_update_idxs_vals(rval_miscs, idxs, vals,
                            idxs_map={fake_ids[0]: new_id},
                            assert_all_vals_used=False)
-    rval_docs = trials.new_trial_docs([new_id],
+    return trials.new_trial_docs([new_id],
                                       rval_specs, rval_results, rval_miscs)
-
-    return rval_docs

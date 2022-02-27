@@ -90,16 +90,12 @@ def model_fn(features, labels, mode):
     # Evaluate the accuracy of the model
     acc_op = tf.metrics.accuracy(labels=labels, predictions=pred_classes)
 
-    # TF Estimators requires to return a EstimatorSpec, that specify
-    # the different ops for training, evaluating, ...
-    estim_specs = tf.estimator.EstimatorSpec(
+    return tf.estimator.EstimatorSpec(
         mode=mode,
         predictions=pred_classes,
         loss=loss_op,
         train_op=train_op,
         eval_metric_ops={'accuracy': acc_op})
-
-    return estim_specs
 
 # Build the Estimator
 model = tf.estimator.Estimator(model_fn)

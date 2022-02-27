@@ -35,9 +35,7 @@ default_status_colors = {
 
 
 def algo_as_str(algo):
-    if isinstance(algo, basestring):
-        return algo
-    return str(algo)
+    return algo if isinstance(algo, basestring) else str(algo)
 
 
 def main_plot_history(trials, bandit=None, algo=None, do_show=True,
@@ -127,25 +125,20 @@ def main_plot_vars(trials, bandit=None, do_show=True, fontsize=10,
     def color_fn(lossval):
         if lossval is None:
             return (1, 1, 1)
-        else:
-            t = 4 * (lossval - loss_min) / (loss_max - loss_min + .0001)
-            if t < 1:
-                return t, 0, 0
-            if t < 2:
-                return 2 - t, t - 1, 0
-            if t < 3:
-                return 0, 3 - t, t - 2
-            return 0, 0, 4 - t
+        t = 4 * (lossval - loss_min) / (loss_max - loss_min + .0001)
+        if t < 1:
+            return t, 0, 0
+        if t < 2:
+            return 2 - t, t - 1, 0
+        if t < 3:
+            return 0, 3 - t, t - 2
+        return 0, 0, 4 - t
 
     def color_fn_bw(lossval):
         if lossval in (None, float('inf')):
             return (1, 1, 1)
-        else:
-            t = (lossval - loss_min) / (loss_max - loss_min + .0001)
-            if lossval < colorize_thresh:
-                return (0., 1. - t, 0.)  # -- red best black worst
-            else:
-                return (t, t, t)    # -- white=worst, black=best
+        t = (lossval - loss_min) / (loss_max - loss_min + .0001)
+        return (0., 1. - t, 0.) if lossval < colorize_thresh else (t, t, t)
 
     all_labels = list(idxs.keys())
     titles = ['%s (%s)' % (label, bandit.params[label].name)
@@ -185,17 +178,7 @@ if 0:
     def erf(x):
         """Erf impl that doesn't require scipy.
         """
-        # from http://www.math.sfu.ca/~cbm/aands/frameindex.htm
-        # via
-        # http://stackoverflow.com/questions/457408/
-        #      is-there-an-easily-available-implementation-of-erf-for-python
-        #
-        #
-
-        # save the sign of x
-        sign = 1
-        if x < 0:
-            sign = -1
+        sign = -1 if x < 0 else 1
         x = abs(x)
 
         # constants
@@ -212,8 +195,7 @@ if 0:
         return sign * y  # erf(-x) = -erf(x)
 
     def mixed_max_erf(scores, n_valid):
-        scores = list(scores)  # shallow copy
-        scores.sort()         # sort the copy
+        scores = sorted(scores)
         scores.reverse()      # reverse the order
 
         # this is valid for classification
@@ -224,7 +206,7 @@ if 0:
         rval = 0.0
         rval_denom = 0.0
 
-        for i, (vscore, tscore) in enumerate(scores):
+        for vscore, tscore in scores:
             mean = vscore
             variance = mean * (1.0 - mean) / (n_valid - 1)
             diff_mean = mean - best_mean
@@ -241,8 +223,7 @@ if 0:
         return rval / rval_denom
 
     def mixed_max_sampled(scores, n_valid, n_samples=100, rng=None):
-        scores = list(scores)  # shallow copy
-        scores.sort()         # sort the copy
+        scores = sorted(scores)
         scores.reverse()      # reverse the order
 
         # this is valid for classification
@@ -252,22 +233,17 @@ if 0:
         mu = []
         sigma = []
         tscores = []
-        for i, (vscore, tscore) in enumerate(scores):
+        for vscore, tscore in scores:
             mean = vscore
             variance = mean * (1.0 - mean) / (n_valid - 1)
             diff_mean = mean - best_mean
             diff_variance = variance + best_variance
-            # for scores, which should approach 1, the diff here will be negative (or zero).
-            # so the probability of the current point being the best is the probability that
-            # the current gaussian puts on positive values.
-
             if -diff_mean / np.sqrt(diff_variance) > 3:
                 # print 'breaking after', len(tscores), len(scores)
                 break
-            else:
-                mu.append(diff_mean)
-                sigma.append(np.sqrt(diff_variance))
-                tscores.append(tscore)
+            mu.append(diff_mean)
+            sigma.append(np.sqrt(diff_variance))
+            tscores.append(tscore)
 
         if rng is None:
             rng = np.random.RandomState(232342)
@@ -318,7 +294,8 @@ if 0:
 
             def best_score(i):
                 scores_i = scores[i * K:(i + 1) * K]
-                rval = np.dot(
+                # print rval
+                return np.dot(
                     [tscore for (vscore, tscore) in scores_i],
                     # TODO: where is pbest_sampled defined?
                     pbest_sampled(
@@ -326,8 +303,6 @@ if 0:
                         n_valid,
                         n_samples=pbest_n_samples,
                         rng=rng))
-                # print rval
-                return rval
 
             if n_batches_of_K < 10:
                 # use scatter plot
@@ -458,8 +433,7 @@ if 0:
                                         y_fn(job) is not None and
                                         np.isfinite(y_fn(job)))]
             trials.sort()
-            trials = trials[start:stop]
-            if trials:
+            if trials := trials[start:stop]:
                 self.histories.append((
                     [t[1] for t in trials],
                     [t[2] for t in trials],
@@ -497,7 +471,7 @@ if 0:
         colors = ['r', 'y', 'b', 'g', 'c', 'k']
 
         def custom_err_fn(trial):
-            if 2 == trial['status']:
+            if trial['status'] == 2:
                 rval = 1.0 - trial['result']['best_epoch_valid']
                 if rval > dict(
                         convex=.4,
@@ -542,9 +516,7 @@ if 0:
             self.a_choices = np.array([[e['choice']
                                         for e in t.flatten()]
                                        for t in confs])
-            self.nones = np.array([[None
-                                    for e in t.flatten()]
-                                   for t in confs])
+            self.nones = np.array([[None for _ in t.flatten()] for t in confs])
             self.a_names = conf_template.flatten_names()
             self.a_vars = [not np.all(self.a_choices[:, i] == self.nones[:, i])
                            for i, name in enumerate(self.a_names)]
@@ -571,7 +543,7 @@ if 0:
             plt.show()
 
         def main_show_all(self, columns=None):
-            if columns == None:
+            if columns is None:
                 columns = range(len(self.a_vars))
 
             columns = [c for c in columns if c < len(self.a_vars)]

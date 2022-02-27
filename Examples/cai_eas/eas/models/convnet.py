@@ -56,9 +56,9 @@ class SimpleConvnetConfig:
 			'bn_decay': bn_decay,
 			'drop_scheme': drop_scheme,
 		}
-		
+
 		image_size = data_provider.data_shape[0]
-		
+
 		layers = []
 		conv_id = 0
 		for _i, block_config in enumerate(conv_blocks_config):
@@ -91,9 +91,7 @@ class SimpleConvnetConfig:
 								 activation=None)
 		layers.append(final_fc_layer)
 		self.layer_cascade = LayerCascade('SimpleConvNet', layers)
-		
-		if print_info:
-			pass
+
 		return self
 	
 	def set_net_from_config(self, net_config_json, init=None, print_info=True):
@@ -101,8 +99,6 @@ class SimpleConvnetConfig:
 			self.net_config[key] = net_config_json[key]
 		init = init['layer_cascade'] if init is not None else None
 		self.layer_cascade = LayerCascade.set_from_config(net_config_json['layer_cascade'], init)
-		if print_info:
-			pass
 		return self
 	
 	def widen(self, layer_idx, new_width, widen_type='output_dim', noise=None):
@@ -128,7 +124,7 @@ class SimpleConvnetConfig:
 					task_list[task_id] = (prev_layer, [new_layer])
 			else:
 				new_layer.set_identity_layer(strict=strict, noise=noise)
-		if len(task_list) > 0:
+		if task_list:
 			model = SimpleConvnet(None, data_provider, None, net_config=self, only_forward=True)
 			task_list = list(task_list.values())
 			fetches = [prev_layer.output_op for prev_layer, _ in task_list]

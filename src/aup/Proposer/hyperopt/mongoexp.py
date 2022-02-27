@@ -455,21 +455,14 @@ class MongoJobs(object):
 
     def reserve(self, host_id, cond=None, exp_key=None):
         now = coarse_utcnow()
-        if cond is None:
-            cond = {}
-        else:
-            cond = copy.copy(cond)  # copy is important, will be modified, but only the top-level
-
+        cond = {} if cond is None else copy.copy(cond)
         if exp_key is not None:
             cond['exp_key'] = exp_key
 
-        # having an owner of None implies state==JOB_STATE_NEW, so this effectively
-        # acts as a filter to make sure that only new jobs get reserved.
         if cond.get('owner') is not None:
             raise ValueError('refusing to reserve owned job')
-        else:
-            cond['owner'] = None
-            cond['state'] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
+        cond['owner'] = None
+        cond['state'] = JOB_STATE_NEW  # theoretically this is redundant, theoretically
 
         try:
             rval = self.jobs.find_and_modify(
@@ -510,9 +503,8 @@ class MongoJobs(object):
                 raise ValueError('cannot update the _id field')
             del dct['_id']
 
-        if 'version' in dct:
-            if dct['version'] != doc['version']:
-                warnings.warn('Ignoring "version" field in update dictionary')
+        if 'version' in dct and dct['version'] != doc['version']:
+            warnings.warn('Ignoring "version" field in update dictionary')
 
         if 'version' in doc:
             doc_query = dict(_id=doc['_id'], version=doc['version'])
@@ -542,23 +534,6 @@ class MongoJobs(object):
             if server_doc is None:
                 raise OperationFailure('updated doc not found : %s'
                                        % str(doc))
-            elif server_doc != doc:
-                if 0:  # This is all commented out because it is tripping on the fact that
-                    # str('a') != unicode('a').
-                    # TODO: eliminate false alarms and catch real ones
-                    mismatching_keys = []
-                    for k, v in list(server_doc.items()):
-                        if k in doc:
-                            if doc[k] != v:
-                                mismatching_keys.append((k, v, doc[k]))
-                        else:
-                            mismatching_keys.append((k, v, '<missing>'))
-                    for k, v in list(doc.items()):
-                        if k not in server_doc:
-                            mismatching_keys.append((k, '<missing>', v))
-
-                    raise OperationFailure('local and server doc documents are out of sync: %s' %
-                                           repr((doc, server_doc, mismatching_keys)))
         return doc
 
     def attachment_names(self, doc):
@@ -628,11 +603,7 @@ class MongoJobs(object):
 
     def delete_attachment(self, doc, name, collection=None):
         attachments = doc.get('_attachments', [])
-        file_id = None
-        for i, a in enumerate(attachments):
-            if a[0] == name:
-                file_id = a[1]
-                break
+        file_id = next((a[1] for a in attachments if a[0] == name), None)
         if file_id is None:
             raise OperationFailure('Attachment not found: %s' % name)
         del attachments[i]
@@ -676,12 +647,11 @@ class MongoTrials(Trials):
             self.refresh()
 
     def view(self, exp_key=None, cmd=None, workdir=None, refresh=True):
-        rval = self.__class__(self.handle,
+        return self.__class__(self.handle,
                               exp_key=self._exp_key if exp_key is None else exp_key,
                               cmd=self.cmd if cmd is None else cmd,
                               workdir=self.workdir if workdir is None else workdir,
                               refresh=refresh)
-        return rval
 
     def refresh_tids(self, tids):
         """ Sync documents with `['tid']` in the list of `tids` from the
@@ -701,10 +671,7 @@ class MongoTrials(Trials):
 
         """
         exp_key = self._exp_key
-        if exp_key != None:
-            query = {'exp_key': exp_key}
-        else:
-            query = {}
+        query = {'exp_key': exp_key} if exp_key != None else {}
         t0 = time.time()
         query['state'] = {'$ne': JOB_STATE_ERROR}
         if tids is not None:
@@ -712,10 +679,9 @@ class MongoTrials(Trials):
         orig_trials = getattr(self, '_trials', [])
         _trials = orig_trials[:]  # copy to make sure it doesn't get screwed up
         if _trials:
-            db_data = list(self.handle.jobs.find(query,
-                                                 projection=['_id', 'version']))
-            # -- pull down a fresh list of ids from mongo
-            if db_data:
+            if db_data := list(
+                self.handle.jobs.find(query, projection=['_id', 'version'])
+            ):
                 # make numpy data arrays
                 db_data = numpy.rec.array([(x['_id'], int(x['version']))
                                            for x in db_data],
@@ -751,11 +717,10 @@ class MongoTrials(Trials):
                                               'hyperopt_refresh_crash_report_' +
                                               str(numpy.random.randint(1e8)) + '.pkl')
                     logger.error('HYPEROPT REFRESH ERROR: writing error file to %s' % reportpath)
-                    _file = open(reportpath, 'w')
-                    pickler.dump({'db_data': db_data,
-                                 'existing_data': existing_data},
-                                _file)
-                    _file.close()
+                    with open(reportpath, 'w') as _file:
+                        pickler.dump({'db_data': db_data,
+                                     'existing_data': existing_data},
+                                    _file)
                     raise
 
                 same_version = existing_data['version'] == db_data['version']
@@ -806,10 +771,7 @@ class MongoTrials(Trials):
         self.refresh_tids(None)
 
     def _insert_trial_docs(self, docs):
-        rval = []
-        for doc in docs:
-            rval.append(self.handle.jobs.insert(doc))
-        return rval
+        return [self.handle.jobs.insert(doc) for doc in docs]
 
     def count_by_state_unsynced(self, arg):
         exp_key = self._exp_key
@@ -821,19 +783,14 @@ class MongoTrials(Trials):
         else:
             assert hasattr(arg, '__iter__')
             states = list(arg)
-            assert all([x in JOB_STATES for x in states])
+            assert all(x in JOB_STATES for x in states)
             query = dict(state={'$in': states})
         if exp_key != None:
             query['exp_key'] = exp_key
-        rval = self.handle.jobs.find(query).count()
-        return rval
+        return self.handle.jobs.find(query).count()
 
     def delete_all(self, cond=None):
-        if cond is None:
-            cond = {}
-        else:
-            cond = dict(cond)
-
+        cond = {} if cond is None else dict(cond)
         if self._exp_key:
             cond['exp_key'] = self._exp_key
         # -- remove all documents matching condition
@@ -955,8 +912,7 @@ class MongoTrials(Trials):
 
             def __getitem__(_self, name):
                 try:
-                    rval = gfs.get_version(filename=name, **query).read()
-                    return rval
+                    return gfs.get_version(filename=name, **query).read()
                 except gridfs.NoFile:
                     raise KeyError(name)
 
@@ -1007,7 +963,7 @@ class MongoWorker(object):
                 reserve_timeout=None,
                 erase_created_workdir=False,
                 ):
-        if host_id == None:
+        if host_id is None:
             host_id = '%s:%i' % (socket.gethostname(), os.getpid()),
         job = None
         start_time = time.time()
@@ -1162,16 +1118,12 @@ class MongoCtrl(Ctrl):
 
 
 def exec_import(cmd_module, cmd):
-    worker_fn = None
     exec('import %s; worker_fn = %s' % (cmd_module, cmd))
-    return worker_fn
+    return None
 
 
 def as_mongo_str(s):
-    if s.startswith('mongo://'):
-        return s
-    else:
-        return 'mongo://%s' % s
+    return s if s.startswith('mongo://') else 'mongo://%s' % s
 
 
 def main_worker_helper(options, args):

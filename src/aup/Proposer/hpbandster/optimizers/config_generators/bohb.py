@@ -54,11 +54,11 @@ class BOHB(base_config_generator):
 		self.min_points_in_model = min_points_in_model
 		if min_points_in_model is None:
 			self.min_points_in_model = len(self.configspace.get_hyperparameters())+1
-		
+
 		if self.min_points_in_model < len(self.configspace.get_hyperparameters())+1:
 			self.logger.warning('Invalid min_points_in_model value. Setting it to %i'%(len(self.configspace.get_hyperparameters())+1))
 			self.min_points_in_model =len(self.configspace.get_hyperparameters())+1
-		
+
 		self.num_samples = num_samples
 		self.random_fraction = random_fraction
 
@@ -71,24 +71,24 @@ class BOHB(base_config_generator):
 		for h in hps:
 			if hasattr(h, 'sequence'):
 				raise RuntimeError('This version on BOHB does not support ordinal hyperparameters. Please encode %s as an integer parameter!'%(h.name))
-			
+
 			if hasattr(h, 'choices'):
 				self.kde_vartypes += 'u'
 				self.vartypes +=[ len(h.choices)]
 			else:
 				self.kde_vartypes += 'c'
 				self.vartypes +=[0]
-		
+
 		self.vartypes = np.array(self.vartypes, dtype=int)
 
 		# store precomputed probs for the categorical parameters
 		self.cat_probs = []
-		
 
-		self.configs = dict()
-		self.losses = dict()
-		self.good_config_rankings = dict()
-		self.kde_models = dict()
+
+		self.configs = {}
+		self.losses = {}
+		self.good_config_rankings = {}
+		self.kde_models = {}
 
 
 	def largest_budget_with_model(self):
@@ -114,11 +114,11 @@ class BOHB(base_config_generator):
 		"""
 		
 		self.logger.debug('start sampling a new configuration.')
-		
+
 
 		sample = None
 		info_dict = {}
-		
+
 		# If no model is available, sample from prior
 		# also mix in a fraction of random configs
 		if len(self.kde_models.keys()) == 0 or np.random.rand() < self.random_fraction:
@@ -136,17 +136,17 @@ class BOHB(base_config_generator):
 
 				l = self.kde_models[budget]['good'].pdf
 				g = self.kde_models[budget]['bad' ].pdf
-			
+
 				minimize_me = lambda x: max(1e-32, g(x))/max(l(x),1e-32)
-				
+
 				kde_good = self.kde_models[budget]['good']
 				kde_bad = self.kde_models[budget]['bad']
 
-				for i in range(self.num_samples):
+				for _ in range(self.num_samples):
 					idx = np.random.randint(0, len(kde_good.data))
 					datum = kde_good.data[idx]
 					vector = []
-					
+
 					for m,bw,t in zip(datum, kde_good.bw, self.vartypes):
 						
 						bw = max(bw, self.min_bandwidth)
@@ -157,12 +157,10 @@ class BOHB(base_config_generator):
 							except:
 								self.logger.warning("Truncated Normal failed for:\ndatum=%s\nbandwidth=%s\nfor entry with value %s"%(datum, kde_good.bw, m))
 								self.logger.warning("data in the KDE:\n%s"%kde_good.data)
+						elif np.random.rand() < (1-bw):
+							vector.append(int(m))
 						else:
-							
-							if np.random.rand() < (1-bw):
-								vector.append(int(m))
-							else:
-								vector.append(np.random.randint(t))
+							vector.append(np.random.randint(t))
 					val = minimize_me(vector)
 
 					if not np.isfinite(val):
@@ -198,7 +196,7 @@ class BOHB(base_config_generator):
 						):
 							best_vector[i] = int(np.rint(best_vector[i]))
 					sample = ConfigSpace.Configuration(self.configspace, vector=best_vector).get_dictionary()
-					
+
 					try:
 						sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
 									configuration_space=self.configspace,
@@ -255,11 +253,7 @@ class BOHB(base_config_generator):
 				else:
 					# no good point in the data has this value activated, so fill it with a valid but random value
 					t = self.vartypes[nan_idx]
-					if t == 0:
-						datum[nan_idx] = np.random.rand()
-					else:
-						datum[nan_idx] = np.random.randint(t)
-
+					datum[nan_idx] = np.random.rand() if t == 0 else np.random.randint(t)
 				nan_indices = np.argwhere(np.isnan(datum)).flatten()
 			return_array[i,:] = datum
 		return(return_array)

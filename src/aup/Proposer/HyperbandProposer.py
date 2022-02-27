@@ -125,7 +125,7 @@ class HyperbandProposer(AbstractProposer):
                 self.current_proposal = None
                 return None
             tids = sorted(self.scores, key=self.scores.get)
-            tids = tids[0:int(self.n_configs / self.eta)]
+            tids = tids[:int(self.n_configs / self.eta)]
             self.test_set = [self.test_set[i] for i in tids]
             self.scores = {}
             self.i += 1
@@ -166,8 +166,7 @@ class HyperbandProposer(AbstractProposer):
 
     @staticmethod
     def setup_config():  # pragma: no cover
-        config = dict()
-        config['max_iter'] = int(input("max iteration [81]:") or 81)
+        config = {'max_iter': int((input("max iteration [81]:") or 81))}
         config['eta'] = int(input("ita [3]") or 3)
         config["skip_last"] = int(input("skip last [0]") or '0')
         config["engine"] = get_from_options("Hyperparameter sampling engine", ["random", "sequence"])

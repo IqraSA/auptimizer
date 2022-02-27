@@ -9,6 +9,7 @@ The setup can be useful if the workers do their computations outside Python's Gl
 In that case, all workers can truely work in parallel.
 
 """
+
 import logging
 logging.basicConfig(level=logging.WARNING)
 
@@ -77,6 +78,8 @@ all_runs = res.get_all_runs()
 print('Best found configuration:', id2config[incumbent]['config'])
 print('A total of %i unique configurations where sampled.' % len(id2config.keys()))
 print('A total of %i runs where executed.' % len(res.get_all_runs()))
-print('Total budget corresponds to %.1f full function evaluations.'%(sum([r.budget for r in all_runs])/args.max_budget))
-print('Total budget corresponds to %.1f full function evaluations.'%(sum([r.budget for r in all_runs])/args.max_budget))
+print('Total budget corresponds to %.1f full function evaluations.' %
+      (sum(r.budget for r in all_runs) / args.max_budget))
+print('Total budget corresponds to %.1f full function evaluations.' %
+      (sum(r.budget for r in all_runs) / args.max_budget))
 print('The run took  %.1f seconds to complete.'%(all_runs[-1].time_stamps['finished'] - all_runs[0].time_stamps['started']))

@@ -30,8 +30,8 @@ class ARIF(lcm_base):
 
         if order is None: order = self.diff_order
 
-        for o in range(order):
-            series = series[1:]-series[:-1] 
+        for _ in range(order):
+            series = series[1:]-series[:-1]
         return series
             
 
@@ -85,64 +85,62 @@ class ARIF(lcm_base):
         d_losses = self.apply_differencing(obs_losses)
 
 
-        for t in range(num_steps):
+        for _ in range(num_steps):
             x = np.hstack([d_losses[-self.order:], config])
             y = self.rfr.predict([x])
             d_losses = np.hstack([d_losses, y])
 
 
-        prediction = self.invert_differencing( obs_losses, d_losses[-num_steps:])
-
-        return(prediction)
+        return self.invert_differencing( obs_losses, d_losses[-num_steps:])
 
 
 if __name__ == "__main__":
 
     sys.path.append("/home/sfalkner/repositories/bitbucket/learning_curve_prediction")
-    
 
-    
+
+
     from lc_prediction.utils import load_configs
-    
-    
+
+
     #data = load_configs("/home/sfalkner/repositories/bitbucket/learning_curve_prediction/data/conv_net_cifar10", 256+128)
     data = load_configs("/home/sfalkner/repositories/bitbucket/learning_curve_prediction/data/fc_net_mnist", 1024)
     #data = load_configs("/home/sfalkner/repositories/bitbucket/learning_curve_prediction/data/lr_mnist", 1024)
-    
+
     data = (data[0], data[1][:,:40])
-    
+
     import matplotlib.pyplot as plt
-    
+
     #plt.plot(data[1].T)
     #plt.show()
-    
-    
-    full_lcs =  [ lc for lc in data[1]]
-    
+
+
+    full_lcs = list(data[1])
+
     T_max = len(full_lcs[0])
-    
+
     learning_curves = [ lc[:np.random.randint(lc.shape[0]-8) + 8]for lc in data[1]]
     #learning_curves = [ lc[:4+ int(np.random.exponential(5))] for lc in data[1]]
     times = [np.arange(1, lc.shape[0]+1) for lc in learning_curves]
-    
+
     lc_model = ARIF(order=3, diff_order=2)
-    
-    
-    
+
+
+
     test_order = 2
     random_sequence = np.random.rand(5)
     tmp = lc_model.apply_differencing(random_sequence, order=test_order)
-    
+
     for i in range(test_order+1):
         print(lc_model.apply_differencing(random_sequence, order=i))
     reconstruction = lc_model.invert_differencing(random_sequence[:1+test_order], tmp, order=test_order)
-    
+
     embed()
-    
-    
-    
+
+
+
     lc_model.fit(learning_curves, data[0])
-    
+
     for i in range(16):
         pred_times = range(times[i][-1]+1, T_max)
         #pred = lc_model.extend_partial(learning_curves[i], min(10, T_max - len(learning_curves[i])), config=data[0][i])
@@ -150,7 +148,7 @@ if __name__ == "__main__":
         plt.plot(full_lcs[i])
         plt.plot(range(len(learning_curves[i]), len(learning_curves[i])+ len(pred)), pred, '--')
     plt.show()
-    
+
     embed()
     
     

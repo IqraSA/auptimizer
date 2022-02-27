@@ -48,7 +48,7 @@ class AbstractProposer(ABC):
     def __init__(self, config):
         self.nSamples = 0   # number of total jobs for an experiment
         self.counter = 0    # number of executed jobs
-        self.current_proposal = dict()
+        self.current_proposal = {}
         self.status = ProposerStatus.RUNNING  # whether the experiment is finished
         self.status_lock = threading.Lock()
         AbstractProposer.verify_config(self, config)
@@ -90,7 +90,7 @@ class AbstractProposer(ABC):
                     if res[0] == '[' and res[-1] == ']':
                         vrange = json.loads(res)
                     else:
-                        vrange = json.loads("[" + res + "]")
+                        vrange = json.loads(f"[{res}]")
                 except ValueError:
                     logger.critical("failed to parse range, treat it as strings separated by ','")
                     vrange = res.split(",")

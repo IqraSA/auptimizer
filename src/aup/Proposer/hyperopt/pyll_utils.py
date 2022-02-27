@@ -212,14 +212,14 @@ def _remove_allpaths(hps, conditions):
     for k, v in list(hps.items()):
         if v['node'].name in ('randint', 'categorical'):
             upper = v['node'].arg['upper'].obj
-            potential_conds[k] = frozenset([EQ(k, ii) for ii in range(upper)])
+            potential_conds[k] = frozenset(EQ(k, ii) for ii in range(upper))
 
     for k, v in list(hps.items()):
         if len(v['conditions']) > 1:
             all_conds = [[c for c in cond if c is not True]
                          for cond in v['conditions']]
             all_conds = [cond for cond in all_conds if len(cond) >= 1]
-            if len(all_conds) == 0:
+            if not all_conds:
                 v['conditions'] = set([conditions])
                 continue
 

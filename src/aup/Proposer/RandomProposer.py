@@ -99,13 +99,22 @@ class RandomProposer(AbstractProposer):
             self.params_gen[p['name']] = _random_fun[p['type']](p['range'])
 
     @staticmethod
-    def setup_config():  # pragma: no cover
+    def setup_config():    # pragma: no cover
         """
         Set up experiment configuration
         :return: experiment config in dict.
         """
-        config = dict()
-        config['n_samples'] = int(input("number of model samples to draw randomly, `n_samples`, [1]:") or 1)
+        config = {
+            'n_samples': int(
+                (
+                    input(
+                        "number of model samples to draw randomly, `n_samples`, [1]:"
+                    )
+                    or 1
+                )
+            )
+        }
+
         config['random_seed'] = int(input("random seed, `random_seed`, [0]:") or 0)
         config.update(AbstractProposer.setup_config())
         return config

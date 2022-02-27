@@ -119,10 +119,10 @@ class PyTorchWorker(Worker):
 		else:
 			optimizer = torch.optim.SGD(model.parameters(), lr=config['lr'], momentum=config['sgd_momentum'])
 
-		for epoch in range(int(budget)):
+		for _ in range(int(budget)):
 			loss = 0
 			model.train()
-			for i, (x, y) in enumerate(self.train_loader):
+			for x, y in self.train_loader:
 				optimizer.zero_grad()
 				output = model(x)
 				loss = F.nll_loss(output, y)
@@ -140,7 +140,7 @@ class PyTorchWorker(Worker):
 						'validation accuracy': validation_accuracy,
 						'number of parameters': model.number_of_parameters(),
 					}
-						
+
 		})
 
 	def evaluate_accuracy(self, model, data_loader):
@@ -152,9 +152,7 @@ class PyTorchWorker(Worker):
 				#test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
 				pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
 				correct += pred.eq(y.view_as(pred)).sum().item()
-		#import pdb; pdb.set_trace()	
-		accuracy = correct/len(data_loader.sampler)
-		return(accuracy)
+		return correct/len(data_loader.sampler)
 
 
 	@staticmethod
@@ -246,15 +244,15 @@ class MNISTConvNet(torch.nn.Module):
 		# to make it identical to the keras worker
 		# seems to also give better accuracies
 		x = F.max_pool2d(F.relu(self.conv1(x)), 2)
-		
-		if not self.conv2 is None:
+
+		if self.conv2 is not None:
 			x = F.max_pool2d(F.relu(self.conv2(x)), 2)
 
-		if not self.conv3 is None:
+		if self.conv3 is not None:
 			x = F.max_pool2d(F.relu(self.conv3(x)), 2)
 
 		x = self.dropout(x)
-		
+
 		x = x.view(-1, self.conv_output_size)
 		x = F.relu(self.fc1(x))
 		x = self.dropout(x)

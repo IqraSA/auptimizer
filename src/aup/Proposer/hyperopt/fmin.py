@@ -343,8 +343,7 @@ def fmin(fn, space, algo, max_evals, trials=None, rstate=None,
 
     """
     if rstate is None:
-        env_rseed = os.environ.get('HYPEROPT_FMIN_SEED', '')
-        if env_rseed:
+        if env_rseed := os.environ.get('HYPEROPT_FMIN_SEED', ''):
             rstate = np.random.RandomState(int(env_rseed))
         else:
             rstate = np.random.RandomState()
@@ -397,7 +396,6 @@ def space_eval(space, hp_assignment):
             label = node.arg['label'].eval()
             if label in hp_assignment:
                 memo[node] = hp_assignment[label]
-    rval = pyll.rec_eval(space, memo=memo)
-    return rval
+    return pyll.rec_eval(space, memo=memo)
 
 # -- flake8 doesn't like blank last line

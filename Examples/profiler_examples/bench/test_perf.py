@@ -23,20 +23,20 @@ def compute(model_path):
     intp.allocate_tensors()
     t1 = time.monotonic() - now
     now = time.monotonic()
-    
-    for i in range(WARMUP):
+
+    for _ in range(WARMUP):
         #x().fill(CONSTANT)
         x =np.random.rand()
         intp.invoke()
         y = intp.get_tensor(iy)
     t2 = time.monotonic() - now
     now = time.monotonic()
-    for i in range(ITER):
+    for _ in range(ITER):
         #x().fill(CONSTANT)
         x =np.random.rand()
         intp.invoke()
         y = intp.get_tensor(iy)
-    t3 = time.monotonic() - now    
+    t3 = time.monotonic() - now
     return t1, t2/float(WARMUP), t3/float(ITER)
 
 

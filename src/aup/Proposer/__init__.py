@@ -40,8 +40,7 @@ def get_proposer(proposer, disable_proposer_logging=False):
         logger.fatal(("%s proposer is not implemented" % proposer))
         raise ValueError("%s proposer is not implemented" % proposer)
 
-    mod = importlib.import_module("." + proposer, "aup.Proposer")
+    mod = importlib.import_module(f".{proposer}", "aup.Proposer")
     _logger = logging.getLogger(mod.__name__)
     _logger.disabled = disable_proposer_logging
-    cls = getattr(mod, proposer)
-    return cls
+    return getattr(mod, proposer)

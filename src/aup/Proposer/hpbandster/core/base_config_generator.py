@@ -23,10 +23,7 @@ class base_config_generator(object):
 
 		"""
 
-		if logger is None:
-			self.logger=logging.getLogger('hpbandster')
-		else:
-			self.logger=logger
+		self.logger = logging.getLogger('hpbandster') if logger is None else logger
 
 	def get_config(self, budget):
 		"""
@@ -61,5 +58,5 @@ class base_config_generator(object):
 		update_model: boolean
 			determines whether a model inside the config_generator should be updated
 		"""
-		if not job.exception is None:
+		if job.exception is not None:
 			self.logger.warning("job {} failed with exception\n{}".format(job.id, job.exception))

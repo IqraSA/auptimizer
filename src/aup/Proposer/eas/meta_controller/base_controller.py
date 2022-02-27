@@ -61,8 +61,7 @@ def embedding(_input, vocab_size, embedding_dim, name='embedding'):
 		initializer=tf.random_uniform_initializer(-np.sqrt(3), np.sqrt(3)),
 		dtype=tf.float32,
 	)  # Initialize embeddings to have variance=1.
-	output = tf.nn.embedding_lookup(embedding_var, _input)
-	return output
+	return tf.nn.embedding_lookup(embedding_var, _input)
 
 
 def build_cell(units, cell_type='lstm', num_layers=1):
@@ -70,13 +69,12 @@ def build_cell(units, cell_type='lstm', num_layers=1):
 		cell = rnn.MultiRNNCell([
 			build_cell(units, cell_type, 1) for _ in range(num_layers)
 		])
+	elif cell_type == "lstm":
+		cell = rnn.LSTMCell(units)
+	elif cell_type == "gru":
+		cell = rnn.GRUCell(units)
 	else:
-		if cell_type == "lstm":
-			cell = rnn.LSTMCell(units)
-		elif cell_type == "gru":
-			cell = rnn.GRUCell(units)
-		else:
-			raise ValueError('Do not support %s' % cell_type)
+		raise ValueError('Do not support %s' % cell_type)
 	return cell
 
 
@@ -184,26 +182,25 @@ class WiderActorNet:
 		output = _input  # [batch_size, num_steps, rnn_units]
 		feature_dim = int(output.get_shape()[2])  # rnn_units
 		output = tf.reshape(output, [-1, feature_dim])  # [batch_size * num_steps, rnn_units]
-		final_activation = 'sigmoid' if self.out_dim == 1 else 'softmax'
-		if self.net_type == 'simple':
-			net_config = [] if self.net_config is None else self.net_config
-			with tf.variable_scope('wider_actor'):
-				for layer in net_config:
-					units, activation = layer.get('units'), layer.get('activation', 'relu')
-					output = BasicModel.fc_layer(output, units, use_bias=True)
-					output = BasicModel.activation(output, activation)
-				logits = BasicModel.fc_layer(output, self.out_dim, use_bias=True)  # [batch_size * num_steps, out_dim]
-			probs = BasicModel.activation(logits, final_activation)  # [batch_size * num_steps, out_dim]
-			probs_dim = self.out_dim
-			if self.out_dim == 1:
-				probs = tf.concat([1 - probs, probs], axis=1)
-				probs_dim = 2
-				
-			self.decision = tf.multinomial(tf.log(probs), 1)  # [batch_size * num_steps, 1]
-			self.decision = tf.reshape(self.decision, [-1, self.num_steps])  # [batch_size, num_steps]
-			self.probs = tf.reshape(probs, [-1, self.num_steps, probs_dim])  # [batch_size, num_steps, out_dim]
-		else:
+		if self.net_type != 'simple':
 			raise ValueError('Do not support %s' % self.net_type)
+		net_config = [] if self.net_config is None else self.net_config
+		with tf.variable_scope('wider_actor'):
+			for layer in net_config:
+				units, activation = layer.get('units'), layer.get('activation', 'relu')
+				output = BasicModel.fc_layer(output, units, use_bias=True)
+				output = BasicModel.activation(output, activation)
+			logits = BasicModel.fc_layer(output, self.out_dim, use_bias=True)  # [batch_size * num_steps, out_dim]
+		final_activation = 'sigmoid' if self.out_dim == 1 else 'softmax'
+		probs = BasicModel.activation(logits, final_activation)  # [batch_size * num_steps, out_dim]
+		probs_dim = self.out_dim
+		if self.out_dim == 1:
+			probs = tf.concat([1 - probs, probs], axis=1)
+			probs_dim = 2
+
+		self.decision = tf.multinomial(tf.log(probs), 1)  # [batch_size * num_steps, 1]
+		self.decision = tf.reshape(self.decision, [-1, self.num_steps])  # [batch_size, num_steps]
+		self.probs = tf.reshape(probs, [-1, self.num_steps, probs_dim])  # [batch_size, num_steps, out_dim]
 
 
 class DeeperActorNet:
@@ -234,51 +231,49 @@ class DeeperActorNet:
 			assert self.cell_type == 'lstm', 'Do not match'
 		else:
 			rnn_units = int(encoder_state.get_shape()[1])
-		cell = build_cell(rnn_units, self.cell_type, self.rnn_layers)
-		return cell
+		return build_cell(rnn_units, self.cell_type, self.rnn_layers)
 	
 	def build_forward(self, encoder_output, encoder_state, is_training, decision_trajectory):
 		self._define_input()
 		self.decision, self.probs = [], []
-		
+
 		batch_size = array_ops.shape(encoder_output)[0]
-		if self.attention_config is None:
-			cell = self.build_decoder_cell(encoder_state)
-			cell_state = encoder_state
-			cell_input = tf.zeros(shape=[batch_size], dtype=tf.int32)
-			with tf.variable_scope('deeper_actor'):
-				for _i in range(self.decision_num):
-					cell_input_embed = embedding(cell_input, 1 if _i == 0 else self.out_dims[_i - 1],
-												 self.embedding_dim, name='deeper_actor_embedding_%d' % _i)
-					with tf.variable_scope('rnn', reuse=(_i > 0)):
-						cell_output, cell_state = cell(cell_input_embed, cell_state)
-					with tf.variable_scope('classifier_%d' % _i):
-						logits_i = BasicModel.fc_layer(cell_output, self.out_dims[_i], use_bias=True)
-					act_i = 'softmax'
-					probs_i = BasicModel.activation(logits_i, activation=act_i)  # [batch_size, out_dim_i]
-					if _i == 1:
-						# determine the layer index for deeper actor
-						# require mask
-						one_hot_block_decision = tf.one_hot(cell_input, depth=self.out_dims[0], dtype=tf.int32)
-						max_layer_num = tf.multiply(self.block_layer_num, one_hot_block_decision)
-						max_layer_num = tf.reduce_max(max_layer_num, axis=1)  # [batch_size]
-						layer_mask = tf.sequence_mask(max_layer_num, self.out_dims[1], dtype=tf.float32)
-						probs_i = tf.multiply(probs_i, layer_mask)
-						# rescale the sum to 1
-						probs_i = tf.divide(probs_i, tf.reduce_sum(probs_i, axis=1, keep_dims=True))
-					decision_i = tf.multinomial(tf.log(probs_i), 1)  # [batch_size, 1]
-					decision_i = tf.cast(decision_i, tf.int32)
-					decision_i = tf.reshape(decision_i, shape=[-1])  # [batch_size]
-					
-					cell_input = tf.cond(
-						is_training,
-						lambda: decision_trajectory[:, _i],
-						lambda: decision_i,
-					)
-					self.decision.append(decision_i)
-					self.probs.append(probs_i)
-				self.decision = tf.stack(self.decision, axis=1)  # [batch_size, decision_num]
-		else:
+		if self.attention_config is not None:
 			raise NotImplementedError
+		cell = self.build_decoder_cell(encoder_state)
+		cell_state = encoder_state
+		cell_input = tf.zeros(shape=[batch_size], dtype=tf.int32)
+		with tf.variable_scope('deeper_actor'):
+			act_i = 'softmax'
+			for _i in range(self.decision_num):
+				cell_input_embed = embedding(cell_input, 1 if _i == 0 else self.out_dims[_i - 1],
+											 self.embedding_dim, name='deeper_actor_embedding_%d' % _i)
+				with tf.variable_scope('rnn', reuse=(_i > 0)):
+					cell_output, cell_state = cell(cell_input_embed, cell_state)
+				with tf.variable_scope('classifier_%d' % _i):
+					logits_i = BasicModel.fc_layer(cell_output, self.out_dims[_i], use_bias=True)
+				probs_i = BasicModel.activation(logits_i, activation=act_i)  # [batch_size, out_dim_i]
+				if _i == 1:
+					# determine the layer index for deeper actor
+					# require mask
+					one_hot_block_decision = tf.one_hot(cell_input, depth=self.out_dims[0], dtype=tf.int32)
+					max_layer_num = tf.multiply(self.block_layer_num, one_hot_block_decision)
+					max_layer_num = tf.reduce_max(max_layer_num, axis=1)  # [batch_size]
+					layer_mask = tf.sequence_mask(max_layer_num, self.out_dims[1], dtype=tf.float32)
+					probs_i = tf.multiply(probs_i, layer_mask)
+					# rescale the sum to 1
+					probs_i = tf.divide(probs_i, tf.reduce_sum(probs_i, axis=1, keep_dims=True))
+				decision_i = tf.multinomial(tf.log(probs_i), 1)  # [batch_size, 1]
+				decision_i = tf.cast(decision_i, tf.int32)
+				decision_i = tf.reshape(decision_i, shape=[-1])  # [batch_size]
+
+				cell_input = tf.cond(
+					is_training,
+					lambda: decision_trajectory[:, _i],
+					lambda: decision_i,
+				)
+				self.decision.append(decision_i)
+				self.probs.append(probs_i)
+			self.decision = tf.stack(self.decision, axis=1)  # [batch_size, decision_num]
 
 

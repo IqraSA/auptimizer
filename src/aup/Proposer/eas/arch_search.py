@@ -34,5 +34,3 @@ elif args.setting == 'densenet':
 		net_pool_folder='placeholder',
 		max_episodes=15,
 	)
-else:
-	pass

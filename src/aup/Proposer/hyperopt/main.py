@@ -76,9 +76,8 @@ def main_search():
     try:
         if not options.load:
             raise IOError()
-        handle = open(options.load, 'rb')
-        self = pickler.load(handle)
-        handle.close()
+        with open(options.load, 'rb') as handle:
+            self = pickler.load(handle)
     except IOError:
         bandit = utils.get_obj(bandit_json, argfile=options.bandit_argfile)
         bandit_algo = utils.get_obj(bandit_algo_json,

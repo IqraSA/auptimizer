@@ -126,14 +126,13 @@ def load_default_env(auppath=DEFAULT_AUPTIMIZER_PATH, log=logger, use_default=Tr
     :rtype: dict
     """
     if not path.isfile(path.join(auppath, "env.ini")):
-        if use_default:
-            auppath = path.join(path.expanduser("~"), ".aup")
-            if log is not None:
-                log.warning("Use default env at %s" % auppath)
-            if not path.isfile(path.join(auppath, "env.ini")):  # pragma: no cover
-                raise Exception("Failed to find env.ini")
-        else:
+        if not use_default:
             raise ValueError("Auptimizer folder %s is missing" % auppath)
+        auppath = path.join(path.expanduser("~"), ".aup")
+        if log is not None:
+            log.warning("Use default env at %s" % auppath)
+        if not path.isfile(path.join(auppath, "env.ini")):  # pragma: no cover
+            raise Exception("Failed to find env.ini")
     if log is not None:
         log.info("Auptimizer environment at %s", auppath)
     config = ConfigParser()

@@ -112,7 +112,7 @@ TRIAL_MISC_KEYS = [
 
 
 def _all_same(*args):
-    return 1 == len(set(args))
+    return len(set(args)) == 1
 
 
 def SONify(arg, memo=None):
@@ -140,11 +140,7 @@ def SONify(arg, memo=None):
         elif isinstance(arg, (basestring, float, int, int, type(None))):
             rval = arg
         elif isinstance(arg, np.ndarray):
-            if arg.ndim == 0:
-                rval = SONify(arg.sum())
-            else:
-                rval = list(map(SONify, arg))  # N.B. memo None
-        # -- put this after ndarray because ndarray not hashable
+            rval = SONify(arg.sum()) if arg.ndim == 0 else list(map(SONify, arg))
         elif arg in (True, False):
             rval = int(arg)
         else:
@@ -201,7 +197,7 @@ def miscs_to_idxs_vals(miscs, keys=None):
             t_idxs = misc['idxs'][node_id]
             t_vals = misc['vals'][node_id]
             assert len(t_idxs) == len(t_vals)
-            assert t_idxs == [] or t_idxs == [misc['tid']]
+            assert t_idxs in [[], [misc['tid']]]
             idxs[node_id].extend(t_idxs)
             vals[node_id].extend(t_vals)
     return idxs, vals
@@ -494,12 +490,11 @@ class Trials(object):
             queue = [doc for doc in trials if doc['state'] == arg]
         elif hasattr(arg, '__iter__'):
             states = set(arg)
-            assert all([x in JOB_STATES for x in states])
+            assert all(x in JOB_STATES for x in states)
             queue = [doc for doc in trials if doc['state'] in states]
         else:
             raise TypeError(arg)
-        rval = len(queue)
-        return rval
+        return len(queue)
 
     def count_by_state_unsynced(self, arg):
         """
@@ -589,13 +584,7 @@ class Trials(object):
     def argmin(self):
         best_trial = self.best_trial
         vals = best_trial['misc']['vals']
-        # unpack the one-element lists to values
-        # and skip over the 0-element lists
-        rval = {}
-        for k, v in list(vals.items()):
-            if v:
-                rval[k] = v[0]
-        return rval
+        return {k: v[0] for k, v in list(vals.items()) if v}
 
     def fmin(self, fn, space, algo, max_evals,
              rstate=None,
@@ -661,10 +650,7 @@ class Ctrl(object):
         #      attachments[key] = value
         #    where key and value are strings. Client code should not
         #    expect any dictionary-like behaviour beyond that (no update)
-        if trials is None:
-            self.trials = Trials()
-        else:
-            self.trials = trials
+        self.trials = Trials() if trials is None else trials
         self.current_trial = current_trial
 
     def checkpoint(self, r=None):
@@ -691,9 +677,9 @@ class Ctrl(object):
         """
         trial = self.current_trial
         assert trial is not None
-        num_news = len(specs)
         assert len(specs) == len(results) == len(miscs)
         if new_tids is None:
+            num_news = len(specs)
             new_tids = self.trials.new_trial_ids(num_news)
         new_trials = self.trials.source_trial_docs(tids=new_tids,
                                                    specs=specs,

@@ -99,11 +99,10 @@ class CifarDataSet(ImagesDataSet):
 		self._batch_counter += 1
 		images_slice = self.epoch_images[start: end]
 		labels_slice = self.epoch_labels[start: end]
-		if images_slice.shape[0] != batch_size:
-			self.start_new_epoch()
-			return self.next_batch(batch_size)
-		else:
+		if images_slice.shape[0] == batch_size:
 			return images_slice, labels_slice
+		self.start_new_epoch()
+		return self.next_batch(batch_size)
 
 
 class CifarDataProvider(DataProvider):
@@ -181,9 +180,8 @@ class CifarDataProvider(DataProvider):
 	@property
 	def data_url(self):
 		"""Return url for downloaded data depends on cifar class"""
-		data_url = ('http://www.cs.toronto.edu/'
+		return ('http://www.cs.toronto.edu/'
 					'~kriz/cifar-%d-python.tar.gz' % self.n_classes)
-		return data_url
 	
 	@property
 	def data_shape(self):

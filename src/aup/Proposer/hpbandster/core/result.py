@@ -57,7 +57,7 @@ def extract_HBS_learning_curves(runs):
 		
 	"""
 	sr = sorted(runs, key=lambda r: r.budget)
-	lc = list(filter(lambda t: not t[1] is None, [(r.budget, r.loss) for r in sr]))
+	lc = list(filter(lambda t: t[1] is not None, [(r.budget, r.loss) for r in sr]))
 	return([lc,])
 		
 
@@ -89,7 +89,7 @@ class json_result_logger(object):
 
 		os.makedirs(directory, exist_ok=True)
 
-		
+
 		self.config_fn  = os.path.join(directory, 'configs.json')
 		self.results_fn = os.path.join(directory, 'results.json')
 
@@ -97,35 +97,33 @@ class json_result_logger(object):
 		try:
 			with open(self.config_fn, 'x') as fh: pass
 		except FileExistsError:
-			if overwrite:
-				with open(self.config_fn, 'w') as fh: pass
-			else:
+			if not overwrite:
 				raise FileExistsError('The file %s already exists.'%self.config_fn)
+			with open(self.config_fn, 'w') as fh: pass
 		except:
 			raise
 
 		try:
 			with open(self.results_fn, 'x') as fh: pass
 		except FileExistsError:
-			if overwrite:
-				with open(self.results_fn, 'w') as fh: pass
-			else:
+			if not overwrite:
 				raise FileExistsError('The file %s already exists.'%self.config_fn)
 
+			with open(self.results_fn, 'w') as fh: pass
 		except:
 			raise
 
 		self.config_ids = set()
 
 	def new_config(self, config_id, config, config_info):
-		if not config_id in self.config_ids:
+		if config_id not in self.config_ids:
 			self.config_ids.add(config_id)
 			with open(self.config_fn, 'a') as fh:
 				fh.write(json.dumps([config_id, config, config_info]))
 				fh.write('\n')
 
 	def __call__(self, job):
-		if not job.id in self.config_ids:
+		if job.id not in self.config_ids:
 			#should never happen! TODO: log warning here!
 			self.config_ids.add(job.id)
 			with open(self.config_fn, 'a') as fh:
@@ -229,14 +227,14 @@ class Result(object):
 			try:
 				# only things run for the max budget are considered
 				res = v.results[self.HB_config['max_budget']]
-				if not res is None:
+				if res is not None:
 					tmp_list.append((res['loss'], k))
 			except KeyError as e:
 				pass
 			except:
 				raise
 
-		if len(tmp_list) > 0:
+		if tmp_list:
 			return(min(tmp_list)[1])
 		return(None)
 
@@ -404,8 +402,7 @@ class Result(object):
 		"""
 		new_dict = {}
 		for k, v in self.data.items():
-			new_dict[k] = {}
-			new_dict[k]['config'] = copy.deepcopy(v.config)
+			new_dict[k] = {'config': copy.deepcopy(v.config)}
 			try:
 				new_dict[k]['config_info'] = copy.deepcopy(v.config_info)
 			except:
@@ -429,7 +426,7 @@ class Result(object):
 		self.data = new_dict
 
 	def num_iterations(self):
-		return(max([k[0] for k in self.data.keys()]) + 1)
+		return max(k[0] for k in self.data.keys()) + 1
 		
 
 	def get_fANOVA_data(self, config_space, budgets=None, loss_fn=lambda r: r.loss, failed_loss=None):

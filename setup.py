@@ -4,8 +4,7 @@ from setuptools import setup, find_packages
 
 BASE_URL="https://github.com/LGE-ARC-AdvancedAI/auptimizer"
 
-CONSOLE_SCRIPTS = []
-CONSOLE_SCRIPTS.append('dashboard = aup.dashboard.dashboard:main')
+CONSOLE_SCRIPTS = ['dashboard = aup.dashboard.dashboard:main']
 
 def find_version():
     # based on https://packaging.python.org/guides/single-sourcing-package-version/
@@ -15,8 +14,9 @@ def find_version():
     file = os.path.join(os.path.abspath(os.path.dirname(__file__)), "src", "aup", "__init__.py")
     with open(file, 'r') as fp:
         content = fp.read()
-    match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", content, re.M)
-    if match:
+    if match := re.search(
+        r"^__version__ = ['\"]([^'\"]*)['\"]", content, re.M
+    ):
         return match.group(1)
     else:
         raise RuntimeError("Failed to find version in __init__.py")
@@ -33,16 +33,15 @@ setup(
     long_description_content_type='text/markdown',
     url=BASE_URL,
     project_urls={
-        "Bug Tracker": BASE_URL+"/issues",
+        "Bug Tracker": f'{BASE_URL}/issues',
         "Documentation": "https://lge-arc-advancedai.github.io/auptimizer/",
         "Source Code": BASE_URL,
     },
-    # install_requires=open("requirements.txt").readlines(),
     packages=find_packages("src", exclude=["tests"]),
     package_dir={"": "src"},
     entry_points={
         'console_scripts': CONSOLE_SCRIPTS,
     },
     zip_safe=False,
-    include_package_data=True
+    include_package_data=True,
 )

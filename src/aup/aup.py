@@ -69,7 +69,7 @@ class BasicConfig(dict):
         :return: configuration parsed from file
         :rtype: aup.BasicConfig
         """
-        name = "_load_" + BasicConfig._get_format(filename)
+        name = f"_load_{BasicConfig._get_format(filename)}"
         func = getattr(self, name)
         data = func(filename)
         if type(data) is not dict:
@@ -85,7 +85,7 @@ class BasicConfig(dict):
         :param filename: file name ends with [.json|.pkl]
         :type filename: string
         """
-        name = "_save_" + BasicConfig._get_format(filename)
+        name = f"_save_{BasicConfig._get_format(filename)}"
         func = getattr(self, name)
         func(filename)
         logger.debug("Config saved to %s" % filename)
@@ -192,7 +192,7 @@ def aup_args(func):
                     raise ValueError("`%s` is required in `%s()` but is not assigned in config file %s" % 
                                      (p[0], func.__name__, filename))
                 logger.info("Using default value for %s", p[0])
-        run_config = dict()
+        run_config = {}
         for p in config:
             if p in parameters:
                 run_config[p] = config[p]
@@ -242,8 +242,7 @@ def aup_flags(flags):
         def wrapper(args):
             config = BasicConfig(**flags.__dict__).load(args[1])
             flags.__dict__.update()
-            parameters = inspect.signature(func).parameters
-            if parameters:
+            if parameters := inspect.signature(func).parameters:
                 logger.warning("TF FLAG main() should not accept arguments with Auptimizer, it has %s", 
                                parameters.keys())
                 val = func({p:None for p in parameters})

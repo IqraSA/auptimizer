@@ -47,12 +47,12 @@ class Worker(object):
 		self.nameserver = nameserver
 		self.nameserver_port = nameserver_port
 		self.worker_id =  "hpbandster.run_%s.worker.%s.%i"%(self.run_id, socket.gethostname(), os.getpid())
-		
+
 		self.timeout = timeout
 		self.timer = None
-		
-		
-		if not id is None:
+
+
+		if id is not None:
 			self.worker_id +='.%s'%str(id)
 
 		self.thread=None
@@ -117,7 +117,7 @@ class Worker(object):
 
 	def _run(self):
 		# initial ping to the dispatcher to register the worker
-		
+
 		try:
 			with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
 				self.logger.debug('WORKER: Connected to nameserver %s'%(str(ns)))
@@ -125,13 +125,12 @@ class Worker(object):
 		except Pyro4.errors.NamingError:
 			if self.thread is None:
 				raise RuntimeError('No nameserver found. Make sure the nameserver is running at that the host (%s) and port (%s) are correct'%(self.nameserver, self.nameserver_port))
-			else:
-				self.logger.error('No nameserver found. Make sure the nameserver is running at that the host (%s) and port (%s) are correct'%(self.nameserver, self.nameserver_port))
-				exit(1)
+			self.logger.error('No nameserver found. Make sure the nameserver is running at that the host (%s) and port (%s) are correct'%(self.nameserver, self.nameserver_port))
+			exit(1)
 		except:
 			raise
-			
-			
+
+
 		for dn, uri in dispatchers.items():
 			try:
 				self.logger.debug('WORKER: found dispatcher %s'%dn)
@@ -140,7 +139,6 @@ class Worker(object):
 
 			except Pyro4.errors.CommunicationError:
 				self.logger.debug('WORKER: Dispatcher did not respond. Waiting for one to initiate contact.')
-				pass
 			except:
 				raise
 
@@ -154,7 +152,7 @@ class Worker(object):
 		with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
 			uri = self.pyro_daemon.register(self, self.worker_id)
 			ns.register(self.worker_id, uri)
-		
+
 		self.pyro_daemon.requestLoop()
 
 		with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
@@ -197,7 +195,7 @@ class Worker(object):
 			while self.busy:
 				self.thread_cond.wait()
 			self.busy = True
-		if not self.timeout is None and not self.timer is None:
+		if self.timeout is not None and self.timer is not None:
 			self.timer.cancel()
 		self.logger.info('WORKER: start processing job %s'%str(id))
 		self.logger.debug('WORKER: args: %s'%(str(args)))
@@ -215,7 +213,7 @@ class Worker(object):
 				callback.register_result(id, result)
 				self.thread_cond.notify()
 		self.logger.info('WORKER: registered result for job %s with dispatcher'%str(id))
-		if not self.timeout is None:
+		if self.timeout is not None:
 			self.timer = threading.Timer(self.timeout, self.shutdown)
 			self.timer.daemon=True
 			self.timer.start()
@@ -230,5 +228,5 @@ class Worker(object):
 	def shutdown(self):
 		self.logger.debug('WORKER: shutting down now!')
 		self.pyro_daemon.shutdown()
-		if not self.thread is None:
+		if self.thread is not None:
 			self.thread.join()

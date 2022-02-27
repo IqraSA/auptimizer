@@ -26,20 +26,20 @@ class MultivariateKDE(object):
 		self.min_bandwidth=min_bandwidth
 		self.fully_dimensional=fully_dimensional
 		self.fix_boundary = fix_boundary
-		
-		
+
+
 		# precompute bandwidth bounds
 		self.bw_bounds = []
-		
+
 		max_bw_cont=0.5
 		max_bw_cat = 0.999
-		
+
 		for t in self.types:
 			if t == 'C':
 				self.bw_bounds.append((min_bandwidth, max_bw_cont))
 			else:
 				self.bw_bounds.append((min_bandwidth, max_bw_cat))
-		
+
 		self.bw_clip = np.array([ bwb[1] for bwb in self.bw_bounds ])
 
 		# initialize other vars
@@ -48,11 +48,15 @@ class MultivariateKDE(object):
 		for t,n in zip(self.types, self.num_values):
 			
 			kwargs = {'num_values':n, 'fix_boundary':fix_boundary}
-			
-			if t == 'I':	self.kernels.append(WangRyzinInteger(**kwargs))
-			if t == 'C':	self.kernels.append(Gaussian(**kwargs))
-			if t == 'O':	self.kernels.append(WangRyzinOrdinal(**kwargs))
-			if t == 'U':	self.kernels.append(AitchisonAitken(**kwargs))			
+
+			if t == 'C':
+				self.kernels.append(Gaussian(**kwargs))
+			elif t == 'I':
+				self.kernels.append(WangRyzinInteger(**kwargs))
+			elif t == 'O':
+				self.kernels.append(WangRyzinOrdinal(**kwargs))
+			elif t == 'U':
+				self.kernels.append(AitchisonAitken(**kwargs))
 		self.data = None
 		
 	

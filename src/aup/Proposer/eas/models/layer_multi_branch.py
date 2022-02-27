@@ -11,13 +11,11 @@ class LayerMultiBranch:
 		self.out_bottle = out_bottle
 		self.merge = merge
 		if self.merge == 'add':
-			out_dim = []
-			for branch in self.branches:
-				out_dim.append(branch.out_features_dim)
+			out_dim = [branch.out_features_dim for branch in self.branches]
 			assert np.std(out_dim) == 0, '<%s> require the output dim of all branches are the same' % self.merge
 		elif self.merge is None:
 			assert len(self.branches) == 1, 'Invalid'
-		
+
 		self.output_op = None
 	
 	@property
@@ -32,15 +30,11 @@ class LayerMultiBranch:
 	def out_features_dim(self):
 		if self.out_bottle:
 			return self.out_bottle.out_features_dim
-		out_dim = []
-		for branch in self.branches:
-			out_dim.append(branch.out_features_dim)
+		out_dim = [branch.out_features_dim for branch in self.branches]
 		if self.merge == 'concat':
 			return np.sum(out_dim)
 		elif self.merge == 'add' or self.merge is None:
 			return out_dim[0]
-		else:
-			pass
 	
 	@property
 	def depth(self):
@@ -49,9 +43,7 @@ class LayerMultiBranch:
 			depth += self.in_bottle.depth
 		if self.out_bottle:
 			depth += self.out_bottle.depth
-		branch_depth = []
-		for branch in self.branches:
-			branch_depth.append(branch.depth)
+		branch_depth = [branch.depth for branch in self.branches]
 		depth += np.max(branch_depth)
 		return depth
 	
@@ -69,9 +61,10 @@ class LayerMultiBranch:
 			if self.in_bottle:
 				output = self.in_bottle.build(output, densenet, store_output_op=store_output_op)
 			# branches
-			branch_out = []
-			for branch in self.branches:
-				branch_out.append(branch.build(output, densenet, store_output_op=store_output_op))
+			branch_out = [
+			    branch.build(output, densenet, store_output_op=store_output_op)
+			    for branch in self.branches
+			]
 			if self.merge == 'concat':
 				output = tf.concat(branch_out, axis=3)
 			elif self.merge == 'add':
@@ -151,33 +144,30 @@ class LayerMultiBranch:
 			branch = self.branches[branch_idx]
 			old_branch_out_dim = branch.out_features_dim
 			change_out_dim, indices, magnifier = branch.widen(loc['layer'], new_width, widen_type, noise=noise)
-			if change_out_dim:
-				assert self.merge != 'add', 'Invalid'
-				prev_branch_out_dim = 0
-				for _i in range(0, branch_idx):
-					prev_branch_out_dim += self.branches[_i].out_features_dim
-				post_branch_out_dim = 0
-				for _i in range(branch_idx + 1, len(self.branches)):
-					post_branch_out_dim += self.branches[_i].out_features_dim
-				old_size = prev_branch_out_dim + old_branch_out_dim + post_branch_out_dim
-				base = np.arange(old_size)
-				indices = np.concatenate([
-					base[:prev_branch_out_dim],
-					indices + prev_branch_out_dim,
-					base[prev_branch_out_dim + old_branch_out_dim:]
-				])
-				magnifier = np.concatenate([
-					[1] * prev_branch_out_dim,
-					magnifier,
-					[1] * post_branch_out_dim,
-				])
-				if self.out_bottle is None:
-					return True, indices, magnifier
-				else:
-					self.out_bottle.prev_widen(indices, magnifier, noise=noise)
-					return False, None, None
-			else:
+			if not change_out_dim:
 				return False, None, None
+			assert self.merge != 'add', 'Invalid'
+			prev_branch_out_dim = sum(
+			    self.branches[_i].out_features_dim for _i in range(branch_idx))
+			post_branch_out_dim = sum(
+			    self.branches[_i].out_features_dim
+			    for _i in range(branch_idx + 1, len(self.branches)))
+			old_size = prev_branch_out_dim + old_branch_out_dim + post_branch_out_dim
+			base = np.arange(old_size)
+			indices = np.concatenate([
+				base[:prev_branch_out_dim],
+				indices + prev_branch_out_dim,
+				base[prev_branch_out_dim + old_branch_out_dim:]
+			])
+			magnifier = np.concatenate([
+				[1] * prev_branch_out_dim,
+				magnifier,
+				[1] * post_branch_out_dim,
+			])
+			if self.out_bottle is None:
+				return True, indices, magnifier
+			self.out_bottle.prev_widen(indices, magnifier, noise=noise)
+			return False, None, None
 		else:
 			raise ValueError('Do not support %s' % loc['multi-branch'])
 	

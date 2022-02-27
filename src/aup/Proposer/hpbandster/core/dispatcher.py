@@ -23,12 +23,10 @@ class Job(object):
 		self.timestamps[which_time] = time.time()
 
 	def __repr__(self):
-		return(\
-			"job_id: " +str(self.id) + "\n" + \
-			"kwargs: " + str(self.kwargs) + "\n" + \
-			"result: " + str(self.result)+ "\n" +\
-			"exception: "+ str(self.exception) + "\n"
-		)
+		return (((((
+		    (f"job_id: {str(self.id)}" + "\n" + "kwargs: ") + str(self.kwargs) + "\n")
+		           + "result: ") + str(self.result) + "\n") + "exception: ") + str(
+		               self.exception) + "\n")
 	def recreate_from_run(self, run):
 		
 		run.config_id
@@ -107,11 +105,7 @@ class Dispatcher(object):
 		self.shutdown_all_threads = False
 
 
-		if logger is None:
-			self.logger = logging.getLogger('hpbandster')
-		else:
-			self.logger = logger
-
+		self.logger = logging.getLogger('hpbandster') if logger is None else logger
 		self.worker_pool = {}
 
 		self.waiting_jobs = queue.Queue()
@@ -193,17 +187,17 @@ class Dispatcher(object):
 	def discover_workers(self):
 		self.discover_cond.acquire()
 		sleep_interval = 1
-		
+
 		while True:
 			self.logger.debug('DISPATCHER: Starting worker discovery')
 			update = False
-		
+
 			with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
 				worker_names = ns.list(prefix="hpbandster.run_%s.worker."%self.run_id)
 				self.logger.debug("DISPATCHER: Found %i potential workers, %i currently in the pool."%(len(worker_names), len(self.worker_pool)))
-				
+
 				for wn, uri in worker_names.items():
-					if not wn in self.worker_pool:
+					if wn not in self.worker_pool:
 						w = Worker(wn, uri)
 						if not w.is_alive():
 							self.logger.debug('DISPATCHER: skipping dead worker, %s'%wn)
@@ -225,21 +219,21 @@ class Dispatcher(object):
 
 					current_job = self.worker_pool[wn].runs_job
 
-					if not current_job is None:
+					if current_job is not None:
 						self.logger.info('Job %s was not completed'%str(current_job))
 						crashed_jobs.add(current_job)
 
 					del self.worker_pool[wn]
 					self.idle_workers.discard(wn)
 					continue
-					
+
 				if not self.worker_pool[wn].is_busy():
 					self.idle_workers.add(wn)
 
 
 			# try to submit more jobs if something changed
 			if update:
-				if not self.queue_callback is None:
+				if self.queue_callback is not None:
 					self.discover_cond.release()
 					self.queue_callback(len(self.worker_pool))
 					self.discover_cond.acquire()

@@ -125,16 +125,12 @@ def model_fn(features, labels, mode):
     # Evaluate the accuracy of the model
     acc_op = tf.metrics.accuracy(labels=labels, predictions=pred_classes)
 
-    # TF Estimators requires to return a EstimatorSpec, that specify
-    # the different ops for training, evaluating, ...
-    estim_specs = tf.estimator.EstimatorSpec(
+    return tf.estimator.EstimatorSpec(
         mode=mode,
         predictions=pred_classes,
         loss=loss_op,
         train_op=train_op,
         eval_metric_ops={'accuracy': acc_op})
-
-    return estim_specs
 
 def train():
     # Build the Estimator
@@ -221,10 +217,10 @@ if __name__ == '__main__':
     # for hyperband
     if "n_iterations" in FLAGS:
         FLAGS.max_steps = int(FLAGS.n_iterations * 100)  # 100 times n_iteration units
-    print("FLAGS => " + str(FLAGS))
+    print(f"FLAGS => {str(FLAGS)}")
 
     val = main(config)
-    print(str(val))
-    
-    
+    print(val)
+        
+
     print_result(val)

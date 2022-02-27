@@ -132,7 +132,7 @@ class BasicModel:
 		num_examples = data.num_examples
 		total_loss = []
 		total_accuracy = []
-		for i in range(num_examples // batch_size):
+		for _ in range(num_examples // batch_size):
 			batch = data.next_batch(batch_size)
 			images, labels = batch
 			feed_dict = {
@@ -160,7 +160,7 @@ class BasicModel:
 		num_examples = data.num_examples
 		total_loss = []
 		total_accuracy = []
-		for i in range(num_examples // batch_size):
+		for _ in range(num_examples // batch_size):
 			batch = data.next_batch(batch_size)
 			feed_dict = {
 				self.images: batch[0],
@@ -183,7 +183,7 @@ class BasicModel:
 			}
 			fetches = [self.cross_entropy, self.accuracy]
 			loss, accuracy = self.sess.run(fetches, feed_dict=feed_dict)
-			
+
 			mean_loss = (mean_loss * (num_examples - remain_num) + loss * remain_num) / num_examples
 			mean_accuracy = (mean_accuracy * (num_examples - remain_num) + accuracy * remain_num) / num_examples
 		return mean_loss, mean_accuracy
@@ -211,11 +211,11 @@ class BasicModel:
 
 		for epoch in range(1, n_epochs + 1):
 			learning_rate = self.run_config.learning_rate(epoch)
-			
+
 			# train one epoch
 			data = self.data_provider.train
 			num_examples = data.num_examples
-			for i in range(num_examples // batch_size):
+			for _ in range(num_examples // batch_size):
 				batch = data.next_batch(batch_size)
 				images, labels = batch
 				feed_dict = {
@@ -265,15 +265,11 @@ class BasicModel:
 	
 	@staticmethod
 	def dropout(_input, keep_prob, is_training):
-		if keep_prob < 1:
-			output = tf.cond(
+		return tf.cond(
 				is_training,
 				lambda: tf.nn.dropout(_input, keep_prob),
 				lambda: _input
-			)
-		else:
-			output = _input
-		return output
+			) if keep_prob < 1 else _input
 	
 	@staticmethod
 	def weight_variable(shape, name, initializer):
@@ -287,26 +283,20 @@ class BasicModel:
 	def avg_pool(_input, k=2, s=2):
 		ksize = [1, k, k, 1]
 		strides = [1, s, s, 1]
-		padding = 'VALID'
-		# if stride = 1, keep the image size unchanged
-		if s == 1: padding = 'SAME'
-		output = tf.nn.avg_pool(_input, ksize, strides, padding)
-		return output
+		padding = 'SAME' if s == 1 else 'VALID'
+		return tf.nn.avg_pool(_input, ksize, strides, padding)
 	
 	@staticmethod
 	def max_pool(_input, k=2, s=2):
 		ksize = [1, k, k, 1]
 		strides = [1, s, s, 1]
-		padding = 'VALID'
-		# if stride = 1, keep the image size unchanged
-		if s == 1: padding = 'SAME'
-		output = tf.nn.max_pool(_input, ksize, strides, padding)
-		return output
+		padding = 'SAME' if s == 1 else 'VALID'
+		return tf.nn.max_pool(_input, ksize, strides, padding)
 
 	@staticmethod
 	def conv2d(_input, out_features, kernel_size, strides=1, padding='SAME', param_initializer=None):
 		if kernel_size == 1: padding = 'VALID'
-		
+
 		in_features = int(_input.get_shape()[-1])
 		if not param_initializer: param_initializer = {}
 		kernel = BasicModel.weight_variable(
@@ -314,8 +304,7 @@ class BasicModel:
 			name='kernel',
 			initializer=param_initializer.get('kernel', tf.contrib.layers.variance_scaling_initializer())
 		)
-		output = tf.nn.conv2d(_input, kernel, [1, strides, strides, 1], padding)
-		return output
+		return tf.nn.conv2d(_input, kernel, [1, strides, strides, 1], padding)
 	
 	@staticmethod
 	def fc_layer(_input, out_units, use_bias=False, param_initializer=None):
@@ -336,10 +325,15 @@ class BasicModel:
 		
 	@staticmethod
 	def batch_norm(_input, is_training, epsilon=1e-3, decay=0.999, param_initializer=None):
-		output = tf.contrib.layers.batch_norm(
-			_input, scale=True, is_training=is_training, param_initializers=param_initializer,
-			updates_collections=None, epsilon=epsilon, decay=decay)
-		return output
+		return tf.contrib.layers.batch_norm(
+		    _input,
+		    scale=True,
+		    is_training=is_training,
+		    param_initializers=param_initializer,
+		    updates_collections=None,
+		    epsilon=epsilon,
+		    decay=decay,
+		)
 
 	@staticmethod
 	def activation(_input, activation='relu'):

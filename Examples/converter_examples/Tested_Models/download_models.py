@@ -34,7 +34,7 @@ def download_all_url(url_file, model_folder):
                 with open(tarFilename, 'wb') as f:
                     f.write(response.raw.read())
             if tarFilename[0].isdigit():
-                save_folder = model_folder + "/" + model_name
+                save_folder = f'{model_folder}/{model_name}'
             else:
                 save_folder = model_folder
             shutil.unpack_archive(tarFilename, save_folder)

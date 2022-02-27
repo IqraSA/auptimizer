@@ -15,7 +15,6 @@ def get_data_provider_by_name(name, train_params):
 		return Cifar100AugmentedDataProvider(**train_params)
 	if name == 'SVHN':
 		return SVHNDataProvider(**train_params)
-	else:
-		print('Sorry, data provider for `%s` dataset '
-			  'was not implemented yet' % name)
-		exit()
+	print('Sorry, data provider for `%s` dataset '
+		  'was not implemented yet' % name)
+	exit()

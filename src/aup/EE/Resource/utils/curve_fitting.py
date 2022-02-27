@@ -112,9 +112,7 @@ class CurveModel:
 
     def normalize_weights(self, samples, num_funcs):
         for i in range(CurveModel.NUM_INSTANCE):
-            total = 0
-            for j in range(num_funcs):
-                total += samples[i][j]
+            total = sum(samples[i][j] for j in range(num_funcs))
             for j in range(num_funcs):
                 samples[i][j] /= total
         return samples
@@ -149,7 +147,7 @@ class CurveModel:
         ret = np.ones(CurveModel.NUM_INSTANCE)
         for i in range(CurveModel.NUM_INSTANCE):
             for j in range(len(funcs)):
-                if not samples[i][j] > 0:
+                if samples[i][j] <= 0:
                     ret[i] = 0
             if self.f_comb(1, samples[i], funcs, func_params) >= self.f_comb(self.iterations, samples[i], funcs, func_params):
                 ret[i] = 0

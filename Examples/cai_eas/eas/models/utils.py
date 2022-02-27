@@ -59,12 +59,11 @@ class RunConfig:
 				if epoch >= reduce_lr_epoch * self.n_epochs:
 					lr /= reduce_factor
 		else:
-			if self.other_lr_schedule['type'] == 'cosine':
-				lr_max = self.init_lr
-				lr_min = self.other_lr_schedule.get('lr_min', 0)
-				lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + np.cos((epoch - 1) / self.n_epochs * np.pi))
-			else:
+			if self.other_lr_schedule['type'] != 'cosine':
 				raise ValueError('Do not support %s' % self.other_lr_schedule['type'])
+			lr_max = self.init_lr
+			lr_min = self.other_lr_schedule.get('lr_min', 0)
+			lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + np.cos((epoch - 1) / self.n_epochs * np.pi))
 		return lr
 
 	@staticmethod

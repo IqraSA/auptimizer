@@ -25,11 +25,10 @@ class loguniform_gen(rv_continuous):
         self._high = high
 
     def _rvs(self):
-        rval = np.exp(mtrand.uniform(
+        return np.exp(mtrand.uniform(
             self._low,
             self._high,
             self._size))
-        return rval
 
     def _pdf(self, x):
         return old_div(1.0, (x * (self._high - self._low)))
@@ -72,10 +71,7 @@ def qtable_pmf(x, q, qlow, xs, ps):
     oks = np.logical_and(is_multiple, is_inbounds)
     rval = np.zeros_like(qx)
     rval[oks] = np.asarray(ps)[ix[oks]]
-    if isinstance(x, np.ndarray):
-        return rval.reshape(x.shape)
-    else:
-        return float(rval)
+    return rval.reshape(x.shape) if isinstance(x, np.ndarray) else float(rval)
 
 
 def qtable_logpmf(x, q, qlow, xs, ps):
@@ -84,10 +80,7 @@ def qtable_logpmf(x, q, qlow, xs, ps):
     rval = np.zeros_like(p)
     rval[p == 0] = -np.inf
     rval[p != 0] = np.log(p[p != 0])
-    if isinstance(x, np.ndarray):
-        return rval
-    else:
-        return float(rval)
+    return rval if isinstance(x, np.ndarray) else float(rval)
 
 
 class quniform_gen(object):
@@ -188,8 +181,7 @@ class qloguniform_gen(quniform_gen):
 
     def rvs(self, size=()):
         x = mtrand.uniform(low=self.low, high=self.high, size=size)
-        rval = np.round(old_div(np.exp(x), self.q)) * self.q
-        return rval
+        return np.round(old_div(np.exp(x), self.q)) * self.q
 
 
 class qnormal_gen(object):
@@ -226,15 +218,11 @@ class qnormal_gen(object):
         a = self._norm_logcdf(ubound)
         b = self._norm_logcdf(lbound)
         rval[in_domain] = a + np.log1p(- np.exp(b - a))
-        if isinstance(x, np.ndarray):
-            return rval
-        else:
-            return float(rval)
+        return rval if isinstance(x, np.ndarray) else float(rval)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = np.round(old_div(x, self.q)) * self.q
-        return rval
+        return np.round(old_div(x, self.q)) * self.q
 
 
 class qlognormal_gen(object):
@@ -259,25 +247,18 @@ class qlognormal_gen(object):
         rval_in_domain[x1_in_domain != 0] -= self._norm_cdf(
             np.log(x1_in_domain[x1_in_domain != 0] - 0.5 * self.q))
         rval[in_domain] = rval_in_domain
-        if isinstance(x, np.ndarray):
-            return rval
-        else:
-            return float(rval)
+        return rval if isinstance(x, np.ndarray) else float(rval)
 
     def logpmf(self, x):
         pmf = self.pmf(np.atleast_1d(x))
         assert np.all(pmf >= 0)
         pmf[pmf == 0] = -np.inf
         pmf[pmf > 0] = np.log(pmf[pmf > 0])
-        if isinstance(x, np.ndarray):
-            return pmf
-        else:
-            return float(pmf)
+        return pmf if isinstance(x, np.ndarray) else float(pmf)
 
     def rvs(self, size=()):
         x = mtrand.normal(loc=self.mu, scale=self.sigma, size=size)
-        rval = np.round(old_div(np.exp(x), self.q)) * self.q
-        return rval
+        return np.round(old_div(np.exp(x), self.q)) * self.q
 
 
 # -- non-empty last line for flake8

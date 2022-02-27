@@ -3,6 +3,7 @@ Example 1 - Local and Sequential
 ================================
 
 """
+
 import logging
 logging.basicConfig(level=logging.WARNING)
 
@@ -65,4 +66,7 @@ incumbent = res.get_incumbent_id()
 print('Best found configuration:', id2config[incumbent]['config'])
 print('A total of %i unique configurations where sampled.' % len(id2config.keys()))
 print('A total of %i runs where executed.' % len(res.get_all_runs()))
-print('Total budget corresponds to %.1f full function evaluations.'%(sum([r.budget for r in res.get_all_runs()])/args.max_budget))
+print(
+    'Total budget corresponds to %.1f full function evaluations.'
+    % (sum(r.budget for r in res.get_all_runs()) / args.max_budget)
+)
