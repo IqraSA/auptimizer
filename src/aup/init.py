@@ -41,10 +41,14 @@ def _set_script(default=""):
 
 def _set_proposer(default=""):
     default = default or "random"
-    config = dict()
-    config["proposer"] = get_from_options("proposer", PROPOSERS.keys(), default=default)
+    config = {
+        "proposer": get_from_options(
+            "proposer", PROPOSERS.keys(), default=default
+        )
+    }
+
     proposer = PROPOSERS[config['proposer']]
-    mod = importlib.import_module("." + proposer, "aup.Proposer")
+    mod = importlib.import_module(f".{proposer}", "aup.Proposer")
     cls = getattr(mod, proposer)
     config.update(cls.setup_config())
     return config
@@ -53,7 +57,7 @@ def _set_proposer(default=""):
 def _set_parallel(resource, cursor, default=1):
     cursor.execute("SELECT COUNT(*) FROM resource WHERE type=?;", (resource,))
     nparallel = cursor.fetchone()[0]
-    val = [i for i in range(1, nparallel + 1)]
+    val = list(range(1, nparallel + 1))
     nparallel = get_from_options("Number of parallel execution on %s, up to %d" %
                                  (resource, nparallel), val, default=default)
 

@@ -49,10 +49,9 @@ class NetPool:
 						record = json.load(open(out_file, 'r'))
 						net_val = float(record['valid_acc'])
 						net_id = self.add_net(net_str, net_val)
-						folder_path = self.get_net_folder(net_id)
 					else:
 						net_id = self.net_str2id[net_str]
-						folder_path = self.get_net_folder(net_id)
+					folder_path = self.get_net_folder(net_id)
 					if folder_path != folder:
 						to_rename.append([folder, folder_path])
 		for src_folder, dst_folder in to_rename:
@@ -171,7 +170,7 @@ class ArchManager:
 	
 	def get_net_tasks(self, net_str_list, net_configs, run_configs):
 		net_val_list = [-1] * len(net_str_list)
-		
+
 		to_run = {}
 		for _i, net_str in enumerate(net_str_list):
 			net_val, net_folder = self.net_pool.get_net_val(net_str)
@@ -182,21 +181,8 @@ class ArchManager:
 					self.prepare_folder_for_valid(net_str, net_configs[_i], run_configs[_i], net_folder)
 			else:
 				net_val_list[_i] = net_val
-		
-		task_list = [[net_folder, to_run[net_folder]] for net_folder in to_run]
-		return task_list
-		#distributed.run(task_list)
-		"""episode_total_running_time = 0
-		for net_folder, idx, net_val in task_list:
-			net_str = net_str_list[idx[0]]
-			net_val, running_time = net_val
-			episode_total_running_time += running_time
-			self.net_pool.on_running_finished(net_str, net_folder, net_val)
-			for _id in idx:
-				net_val_list[_id] = net_val
-		self.log_nets(net_str_list, episode_total_running_time)
-		self.net_pool.save()
-		return net_val_list"""
+
+		return [[net_folder, to_run[net_folder]] for net_folder in to_run]
 	
 	def val2reward(self, net_val_list, func=None):
 		rewards = []

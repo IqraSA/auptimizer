@@ -11,7 +11,7 @@ def default_tool_tips(result_object, learning_curves, include_run_info=False):
 
 	tool_tips = {}
 	id2conf = result_object.get_id2config_mapping()
-	
+
 	for id in learning_curves.keys():
 		
 		config = id2conf[id]['config']
@@ -21,27 +21,30 @@ def default_tool_tips(result_object, learning_curves, include_run_info=False):
 		if len(all_runs) == 0:
 			continue
 		longest_run = all_runs[-1]
-	
+
 		while longest_run.loss is None:
 			all_runs.pop()
 			if len(all_runs) == 0: break
 			longest_run = all_runs[-1]
-			
+
 		if len(all_runs) == 0: continue
-		
+
 		s = ['id: %s'%str(id), 'duration (sec): %f'%((longest_run['time_stamps']['finished'] - longest_run['time_stamps']['started']))]
 
-		if not longest_run.loss is None:
-			s += [str(k) + "=" +str(v) for k,v in sorted(id2conf[id]['config'].items()) ]
+		if longest_run.loss is not None:
+			s += [f'{str(k)}={str(v)}' for k,v in sorted(id2conf[id]['config'].items())]
 			try:
-				s += [str(k) + "=" +str(v) for k,v in sorted(id2conf[id]['config_info'].items()) ]
+				s += [
+				    f'{str(k)}={str(v)}'
+				    for k, v in sorted(id2conf[id]['config_info'].items())
+				]
 			except:
 				pass
-			
+
 			s += ['losses: {}'.format([r.loss for r in all_runs])]
 			if include_run_info:
 				s += ['longest run info: {}'.format(longest_run.info)]
-			
+
 		tool_tips[id] = "\n".join(s)
 	return(tool_tips)
 
@@ -62,19 +65,16 @@ def concurrent_runs_over_time(runs, num_points = 512, show=False):
 
 
 def finished_runs_over_time(runs, show=False):
-	budgets = set([r.budget for r in runs])
-	
-	times = {}
-	for b in budgets:
-		times[b] = [0]
-	
+	budgets = {r.budget for r in runs}
+
+	times = {b: [0] for b in budgets}
 	for r in runs:
 		times[r.budget].append(r.time_stamps['finished'])
-	
+
 	for b in budgets:
 		times[b].sort()
-	
-	
+
+
 	fig, ax = plt.subplots()
 
 	for b in budgets:
@@ -84,7 +84,7 @@ def finished_runs_over_time(runs, show=False):
 	ax.set_xlabel('time [s]')
 	ax.set_ylabel('number of finished runs')
 	ax.legend()
-	
+
 	if show:
 		plt.show()
 	return(fig,ax)
@@ -93,13 +93,8 @@ def performance_histogram_model_vs_random(runs, id2conf, show=False):
 	model_based_runs = list(filter(lambda r: id2conf[r.config_id]['config_info']['model_based_pick'], runs))
 	random_runs = list(filter(lambda r: not id2conf[r.config_id]['config_info']['model_based_pick'], runs))
 
-	budgets = list(set([r.budget for r in runs]))
-	budgets.sort()
-
-	losses = {}
-	for b in budgets:
-		losses[b] = {'model_based': [], 'random': []}
-
+	budgets = sorted({r.budget for r in runs})
+	losses = {b: {'model_based': [], 'random': []} for b in budgets}
 	for r in model_based_runs:
 		if r.loss is None or not np.isfinite(r.loss):
 			continue
@@ -118,19 +113,19 @@ def performance_histogram_model_vs_random(runs, id2conf, show=False):
 		mbax.hist(losses[b]['model_based'], label='b = %f \n n = %i'%(b,len(losses[b]['model_based'])))
 		mbax.set_ylabel('frequency')
 		mbax.legend()
-		
-		
-		
+
+
+
 		rax.hist(losses[b]['random'],label='b = %f \n n = %i'%(b,len(losses[b]['random'])))
 		rax.legend()
-		
-		
+
+
 		if i == len(budgets)-1:
 			mbax.set_xlabel('loss')
 			rax.set_xlabel('loss')
 	if show:		
 		plt.show()
-		
+
 	return(fig, axarr)
 
 
@@ -139,28 +134,23 @@ def correlation_across_budgets(results_object, show=False):
 	runs = results_object.get_all_runs()
 	id2conf = results_object.get_id2config_mapping()
 
-	budgets = list(set([r.budget for r in runs]))
-	budgets.sort()
-
+	budgets = sorted({r.budget for r in runs})
 	import itertools
 
-	loss_pairs = {}
-	for b in budgets[:-1]:
-		loss_pairs[b] = {}
-
+	loss_pairs = {b: {} for b in budgets[:-1]}
 	for b1,b2 in itertools.combinations(budgets, 2):
 		loss_pairs[b1][b2]= []
 
 	for cid in id2conf.keys():
 		runs = results_object.get_runs_by_id(cid)
 		if len(runs) < 2: continue
-		
+
 		for r1,r2 in itertools.combinations(runs,2):
 			if r1.loss is None or r2.loss is None: continue
 			if not np.isfinite(r1.loss) or not np.isfinite(r2.loss): continue
 			loss_pairs[float(r1.budget)][float(r2.budget)].append((r1.loss, r2.loss))
-		
-		
+
+
 
 	rhos = np.eye(len(budgets)-1)
 	rhos.fill(np.nan)
@@ -186,7 +176,7 @@ def correlation_across_budgets(results_object, show=False):
 
 	ax.set_xticks( range(len(budgets)-1))
 	ax.set_xticklabels(budgets[1:],)
-	
+
 	ax.set_title('Rank correlation of the loss across the budgets')
 
 	for i in range(len(budgets)-1):
@@ -202,12 +192,9 @@ def correlation_across_budgets(results_object, show=False):
 
 def losses_over_time(runs, get_loss_from_run_fn = lambda r: r.loss, cmap = plt.get_cmap("tab10"), show=False):
 
-	budgets = set([r.budget for r in runs])
+	budgets = {r.budget for r in runs}
 
-	data = {}
-	for b in budgets:
-		data[b] = []
-
+	data = {b: [] for b in budgets}
 	for r in runs:
 		if r.loss is None:
 			continue
@@ -225,7 +212,7 @@ def losses_over_time(runs, get_loss_from_run_fn = lambda r: r.loss, cmap = plt.g
 	for i, b in enumerate(budgets):
 		data[b] = np.array(data[b])
 		ax.scatter(data[b][:,0], data[b][:,1], color=cmap(i), label='b=%f'%b)
-		
+
 		ax.step(data[b][:,0], np.minimum.accumulate(data[b][:,1]), where='post')
 
 	ax.set_title('Losses for different budgets over time')
@@ -322,11 +309,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None,log_y=False, log
 	
 
 	def change_visibility(label, value=None):
-		if label == 'warmstart data':
-			index = -1
-		else:
-			index = int(label)
-		
+		index = -1 if label == 'warmstart data' else int(label)
 		if value is None:
 			value = not lines[index][0].get_visible()
 		[l.set_visible(value) for l in lines[index]]
@@ -353,10 +336,10 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None,log_y=False, log
 	def update_hover_annotation(line, annotation=hover_annotation):
 		xdata = line.get_xdata()
 		ydata = line.get_ydata()
-		idx = line.get_gid()        
+		idx = line.get_gid()
 		annotation.xy = (xdata[-1], ydata[-1])
 
-		if not tool_tip_strings is None:
+		if tool_tip_strings is not None:
 			annotation.set_text(tool_tip_strings[config_ids[idx]])
 		else:
 			annotation.set_text(str(config_ids[idx]))
@@ -367,17 +350,15 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None,log_y=False, log
 
 		line = event.artist
 
-		if not line in all_lines:
+		if line not in all_lines:
 			return
-		
+
 		gid = line.get_gid()
 
 		if gid in permanent_annotations:
 			# remove permanent annotation
 			permanent_annotations[gid].set_visible(False)
 			del permanent_annotations[gid]
-			fig.canvas.draw_idle()
-
 		else:
 			# add a new annotation
 
@@ -385,23 +366,23 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None,log_y=False, log
 			ydata = line.get_ydata()
 			idx = line.get_gid()
 
-			if not tool_tip_strings is None:
+			if tool_tip_strings is not None:
 				text = tool_tip_strings[config_ids[idx]]
 			else:
 				text = str(config_ids[idx])
-			
+
 			permanent_annotations[gid] = ax.annotate(text, copy.deepcopy((xdata[-1],ydata[-1])),
 							xytext=(20,20),textcoords="offset points",
 							bbox=dict(boxstyle="round", fc="w", linewidth=3),
 							arrowprops=dict(arrowstyle="->"))
-			permanent_annotations[gid].draggable()
-			fig.canvas.draw_idle()            
+			permanent_annotations[gid].draggable()            
+
+		fig.canvas.draw_idle()            
 
 	def hover(event):
 		vis = hover_annotation.get_visible()
 		if event.inaxes == ax:
-			active_lines = list(filter(lambda l: l.contains(event)[0], all_lines))
-			if len(active_lines) > 0:
+			if active_lines := list(filter(lambda l: l.contains(event)[0], all_lines)):
 				hover_annotation.set_visible(True)
 				update_hover_annotation(active_lines[0])
 			elif vis:

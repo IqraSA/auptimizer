@@ -12,9 +12,9 @@ class Datum(object):
 	def __init__(self, config, config_info, results=None, time_stamps=None, exceptions=None, status='QUEUED', budget=0):
 		self.config		= config
 		self.config_info= config_info
-		self.results	= results		if not results is None else {}
-		self.time_stamps= time_stamps	if not time_stamps is None else {}
-		self.exceptions	= exceptions	if not exceptions is None else {}
+		self.results = results if results is not None else {}
+		self.time_stamps = time_stamps if time_stamps is not None else {}
+		self.exceptions = exceptions if exceptions is not None else {}
 		self.status		= status
 		self.budget		= budget
 
@@ -66,7 +66,7 @@ class BaseIteration(object):
 		self.actual_num_configs = [0]*len(num_configs)
 		self.config_sampler = config_sampler
 		self.num_running = 0
-		self.logger=logger if not logger is None else logging.getLogger('hpbandster')
+		self.logger = logger if logger is not None else logging.getLogger('hpbandster')
 		self.result_logger = result_logger
 
 	def add_configuration(self, config = None, config_info={}):
@@ -84,7 +84,7 @@ class BaseIteration(object):
 		
 		if config is None:
 			config, config_info = self.config_sampler(self.budgets[self.stage])
-		
+
 		if self.is_finished:
 			raise RuntimeError("This HPBandSter iteration is finished, you can't add more configurations!")
 
@@ -96,10 +96,10 @@ class BaseIteration(object):
 		self.data[config_id] = Datum(config=config, config_info=config_info, budget = self.budgets[self.stage])
 
 		self.actual_num_configs[self.stage] += 1
-		
-		if not self.result_logger is None:
-		    self.result_logger.new_config(config_id, config, config_info)
-		
+
+		if self.result_logger is not None:
+			self.result_logger.new_config(config_id, config, config_info)
+
 		return(config_id)
 
 	def register_result(self, job, skip_sanity_checks=False):
@@ -119,9 +119,9 @@ class BaseIteration(object):
 		timestamps = job.timestamps
 		result = job.result
 		exception = job.exception
-		
+
 		d = self.data[config_id]
-		
+
 		if not skip_sanity_checks:
 			assert d.config == config, 'Configurations differ!'
 			assert d.status == 'RUNNING', "Configuration wasn't scheduled for a run."
@@ -130,7 +130,7 @@ class BaseIteration(object):
 		d.time_stamps[budget] = timestamps
 		d.results[budget] = result
 
-		if (not job.result is None) and np.isfinite(result['loss']):
+		if job.result is not None and np.isfinite(result['loss']):
 			d.status = 'REVIEW'
 		else:
 			d.status = 'CRASHED'

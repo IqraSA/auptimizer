@@ -75,7 +75,7 @@ class AbstractResourceManager(ABC):
 
     def __init__(self, connector, n_parallel, *args, **kwargs):
         self.connector = connector
-        self.jobs = dict()
+        self.jobs = {}
 
         warnings.filterwarnings("ignore")
 
@@ -90,7 +90,7 @@ class AbstractResourceManager(ABC):
         self.track_intermediate_results = kwargs.get("track_intermediate_results", False)
         self.interm_job_res = None
         if self.track_intermediate_results:
-            self.interm_job_res = dict()
+            self.interm_job_res = {}
 
         # variables for early stop impl
         if "early_stop" in kwargs:
@@ -102,7 +102,7 @@ class AbstractResourceManager(ABC):
             self.curve_fitting_threshold = kwargs["early_stop"].get("curve_fitting_threshold", 0.95)
             self.curve_fitting_max_iters = kwargs["early_stop"].get("curve_fitting_max_iters", None)
             self.curve_fitting_timeout = kwargs["early_stop"].get("curve_fitting_timeout", 60)
-            self.job_checked = dict()
+            self.job_checked = {}
             self.early_stop_daemon_finished = False
             self.stopped_jobs = set()
             if self.policy == "curve_fitting" and self.curve_fitting_max_iters is None:
@@ -115,7 +115,7 @@ class AbstractResourceManager(ABC):
             self.warmup = None
             self.policy = None
             self.policy_steps = 0
-            self.job_checked = dict()
+            self.job_checked = {}
             self.early_stop_daemon_finished = True
             self.early_stop_daemon = None
             self.stopped_jobs = None
@@ -186,8 +186,8 @@ class AbstractResourceManager(ABC):
         self.jobs[job.jid] = rid
 
         if self.interm_job_res != None:
-            self.interm_job_res[job.jid] = list()
-            self.job_checked[job.jid] = list()
+            self.interm_job_res[job.jid] = []
+            self.job_checked[job.jid] = []
 
         try:
             self.run(job, rid, exp_config, call_back_func, **kwargs)
@@ -197,7 +197,7 @@ class AbstractResourceManager(ABC):
             raise(e)
 
     def append_interm_res(self, jid, interm_res):
-        if self.interm_job_res == None:
+        if self.interm_job_res is None:
             return None
 
         if jid in self.interm_job_res:
@@ -206,10 +206,10 @@ class AbstractResourceManager(ABC):
                 return self.connector.save_intermediate_result(jid, interm_res)
             else:
                 logger.warning("Could not save intermediate result: no connector attached to resource manager")
-            return None
         else:
             logger.fatal("Job {} should have already started!".format(jid))
-            return None
+
+        return None
 
     def append_multiple_results(self, jid, irid, eid, scores):
         if self.result_labels is None or len(scores) == 0:
@@ -323,7 +323,7 @@ class AbstractResourceManager(ABC):
                     continue
 
                 comp_interm_job_res = {jid: vals for jid, vals in interm_job_res.items() if len(vals) >= step and jid != c_jid}
-                if len(comp_interm_job_res) < 1: # too few jobs 
+                if not comp_interm_job_res: # too few jobs 
                     time.sleep(EARLY_STOPPING_SLEEP)
                     continue
 
@@ -369,7 +369,7 @@ class AbstractResourceManager(ABC):
                     curve_fitting_threads += [cf_thread]
 
                 self.job_checked[c_jid] += [step]
-            
+
             for thread in curve_fitting_threads:
                 thread.join()
 

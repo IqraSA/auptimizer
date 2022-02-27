@@ -82,13 +82,9 @@ class Master(object):
 
 		self.working_directory = working_directory
 		os.makedirs(self.working_directory, exist_ok=True)
-		
 
-		if logger is None:
-			self.logger = logging.getLogger('hpbandster')
-		else:
-			self.logger = logger
 
+		self.logger = logging.getLogger('hpbandster') if logger is None else logger
 		self.result_logger = result_logger
 
 
@@ -186,27 +182,27 @@ class Master(object):
 		"""
 
 		self.wait_for_workers(min_n_workers)
-		
+
 		iteration_kwargs.update({'result_logger': self.result_logger})
 
 		if self.time_ref is None:
 			self.time_ref = time.time()
 			self.config['time_ref'] = self.time_ref
-		
+
 			self.logger.info('HBMASTER: starting run at %s'%(str(self.time_ref)))
 
 		self.thread_cond.acquire()
 		while True:
 
 			self._queue_wait()
-			
+
 			next_run = None
 			# find a new run to schedule
 			for i in self.active_iterations():
 				next_run = self.iterations[i].get_next_run()
-				if not next_run is None: break
+				if next_run is not None: break
 
-			if not next_run is None:
+			if next_run is not None:
 				self.logger.debug('HBMASTER: schedule new run for iteration %i'%i)
 				self._submit_job(*next_run)
 				continue
@@ -224,12 +220,12 @@ class Master(object):
 				break
 
 		self.thread_cond.release()
-		
+
 		for i in self.warmstart_iteration:
 			i.fix_timestamps(self.time_ref)
-			
+
 		ws_data = [i.data for i in self.warmstart_iteration]
-		
+
 		return Result([copy.deepcopy(i.data) for i in self.iterations] + ws_data, self.config)
 
 
@@ -257,7 +253,7 @@ class Master(object):
 			self.logger.debug('job_callback for %s got condition'%str(job.id))
 			self.num_running_jobs -= 1
 
-			if not self.result_logger is None:
+			if self.result_logger is not None:
 				self.result_logger(job)
 			self.iterations[job.id[0]].register_result(job)
 			self.config_generator.new_result(job)
@@ -303,8 +299,11 @@ class Master(object):
 			list: all active iteration objects (empty if there are none)
 		"""
 
-		l = list(filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))))
-		return(l)
+		return list(
+		    filter(
+		        lambda idx: not self.iterations[idx].is_finished,
+		        range(len(self.iterations)),
+		    ))
 
 	def __del__(self):
 		pass

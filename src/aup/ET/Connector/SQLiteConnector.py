@@ -34,8 +34,7 @@ def _delayed(func):
         while flag < REPEATED_TIME:
             try:
                 LOCK.acquire() # make sure not to call @_delayed functions recursively from one another
-                results = func(*args, **kwargs)
-                return results
+                return func(*args, **kwargs)
             except sqlite3.ProgrammingError as ex:  # pragma: no cover
                 logger.critical("update is too frequent, delayed for 1 sec")
                 logger.debug("sqlite3 programming error: {}".format(ex))
@@ -66,9 +65,9 @@ class SQLiteConnector(AbstractConnector):
         names = [i[0] for i in self.cursor.fetchall()]
         if names:
             names = [name for name in names if re.findall(r"\(\d+\)$", name)]
-            if names:
-                indexes = [int(re.findall(r"\(\d+\)$", name)[-1][1:-1]) for name in names]
-                last_index = max(indexes)
+        if names:
+            indexes = [int(re.findall(r"\(\d+\)$", name)[-1][1:-1]) for name in names]
+            last_index = max(indexes)
         return name + " ({})".format(last_index + 1)
 
     def _mark_resource(self, rid, status):
@@ -180,9 +179,7 @@ class SQLiteConnector(AbstractConnector):
         else:
             self.cursor.execute("""SELECT job_config 
                 FROM job WHERE eid = ? AND score=(select min(score) from job where eid=? AND typeof(score) = 'real')""", (eid, eid))
-        t = self.cursor.fetchone()
-
-        return t
+        return self.cursor.fetchone()
 
     @_delayed
     def get_running_job(self, eid):
@@ -273,8 +270,7 @@ class SQLiteConnector(AbstractConnector):
             FROM intermediate_result ir
             WHERE ir.jid=?
             ORDER BY ir.num ASC;""", (jid,))
-        rows = [row[0] for row in self.cursor.fetchall()]
-        return rows
+        return [row[0] for row in self.cursor.fetchall()]
 
     @_delayed
     def get_intermediate_results_jobs(self, jids):

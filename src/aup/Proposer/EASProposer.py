@@ -47,25 +47,24 @@ except ImportError as e:
 class EASProposer(AbstractProposer):
 
     def get_net_str(self, net_configs):
-        if isinstance(net_configs, list):
-            if len(net_configs) == 1:
-                net_config = net_configs[0]
-                net_str = []
-                for layer in net_config.layer_cascade.layers[:-1]:
-                    if isinstance(layer, arch_search_convnet_net2net.ConvLayer):
-                        net_str.append('conv-%d-%d' % (layer.filter_num, layer.kernel_size))
-                    elif isinstance(layer, arch_search_convnet_net2net.FCLayer):
-                        net_str.append('fc-%d' % layer.units)
-                    else:
-                        net_str.append('pool')
-                return ['_'.join(net_str)]
-            else:
-                net_str_list = []
-                for net_config in net_configs:
-                    net_str_list += arch_search_convnet_net2net.get_net_str([net_config])
-                return net_str_list
-        else:
+        if not isinstance(net_configs, list):
             return arch_search_convnet_net2net.get_net_str([net_configs])[0]
+        if len(net_configs) == 1:
+            net_config = net_configs[0]
+            net_str = []
+            for layer in net_config.layer_cascade.layers[:-1]:
+                if isinstance(layer, arch_search_convnet_net2net.ConvLayer):
+                    net_str.append('conv-%d-%d' % (layer.filter_num, layer.kernel_size))
+                elif isinstance(layer, arch_search_convnet_net2net.FCLayer):
+                    net_str.append('fc-%d' % layer.units)
+                else:
+                    net_str.append('pool')
+            return ['_'.join(net_str)]
+        else:
+            net_str_list = []
+            for net_config in net_configs:
+                net_str_list += arch_search_convnet_net2net.get_net_str([net_config])
+            return net_str_list
 
     def get_net_seq(net_configs, vocabulary, num_steps):
         net_str_list = arch_search_convnet_net2net.get_net_str(net_configs)
@@ -81,9 +80,9 @@ class EASProposer(AbstractProposer):
         return arch_search_convnet_net2net.np.array(net_seq), arch_search_convnet_net2net.np.array(seq_len)
 
     def get_block_layer_num(net_configs):
+        block_layer_num = []
         if len(net_configs) == 1:
             net_config = net_configs[0]
-            block_layer_num = []
             _count = 0
             for layer in net_config.layer_cascade.layers[:-1]:
                 if isinstance(layer, arch_search_convnet_net2net.PoolLayer):
@@ -94,51 +93,54 @@ class EASProposer(AbstractProposer):
             block_layer_num.append(_count)
             return arch_search_convnet_net2net.np.array([block_layer_num])
         else:
-            block_layer_num = []
-            for net_config in net_configs:
-                block_layer_num.append(arch_search_convnet_net2net.get_block_layer_num([net_config]))
+            block_layer_num.extend(
+                arch_search_convnet_net2net.get_block_layer_num([net_config])
+                for net_config in net_configs
+            )
+
             return arch_search_convnet_net2net.np.concatenate(block_layer_num, axis=0)
 
     def apply_wider_decision(wider_decision, net_configs, filter_num_list, units_num_list, noise):
+        decision_mask = []
         if len(net_configs) == 1:
             decision = wider_decision[0]
             net_config = net_configs[0]
-            decision_mask = []
             for _i, layer in enumerate(net_config.layer_cascade.layers[:-1]):
-                if isinstance(layer, arch_search_convnet_net2net.ConvLayer):
-                    if layer.filter_num >= filter_num_list[-1]:
-                        decision_mask.append(0.0)
-                    else:
-                        decision_mask.append(1.0)
-                        if decision[_i]:
-                            new_filter_number = layer.filter_num
-                            for fn in filter_num_list:
-                                if fn > new_filter_number:
-                                    new_filter_number = fn
-                                    break
-                            net_config.widen(
-                                layer_idx=_i, new_width=new_filter_number, noise=noise
-                            )
-                elif isinstance(layer, arch_search_convnet_net2net.FCLayer):
-                    if layer.units >= units_num_list[-1]:
-                        decision_mask.append(0.0)
-                    else:
-                        decision_mask.append(1.0)
-                        if decision[_i]:
-                            new_units_num = layer.units
-                            for un in units_num_list:
-                                if un > new_units_num:
-                                    new_units_num = un
-                                    break
-                            net_config.widen(
-                                layer_idx=_i, new_width=new_units_num, noise=noise,
-                            )
-                else:
+                if (
+                    isinstance(layer, arch_search_convnet_net2net.ConvLayer)
+                    and layer.filter_num >= filter_num_list[-1]
+                    or not isinstance(layer, arch_search_convnet_net2net.ConvLayer)
+                    and isinstance(layer, arch_search_convnet_net2net.FCLayer)
+                    and layer.units >= units_num_list[-1]
+                    or not isinstance(layer, arch_search_convnet_net2net.ConvLayer)
+                    and not isinstance(layer, arch_search_convnet_net2net.FCLayer)
+                ):
                     decision_mask.append(0.0)
+                elif isinstance(layer, arch_search_convnet_net2net.ConvLayer):
+                    decision_mask.append(1.0)
+                    if decision[_i]:
+                        new_filter_number = layer.filter_num
+                        for fn in filter_num_list:
+                            if fn > new_filter_number:
+                                new_filter_number = fn
+                                break
+                        net_config.widen(
+                            layer_idx=_i, new_width=new_filter_number, noise=noise
+                        )
+                else:
+                    decision_mask.append(1.0)
+                    if decision[_i]:
+                        new_units_num = layer.units
+                        for un in units_num_list:
+                            if un > new_units_num:
+                                new_units_num = un
+                                break
+                        net_config.widen(
+                            layer_idx=_i, new_width=new_units_num, noise=noise,
+                        )
             decision_mask += [0.0] * (len(decision) - len(decision_mask))
             return arch_search_convnet_net2net.np.array([decision_mask])
         else:
-            decision_mask = []
             for _i, net_config in enumerate(net_configs):
                 decision = wider_decision[_i]
                 mask = arch_search_convnet_net2net.apply_wider_decision([decision], [net_config], filter_num_list,
@@ -147,6 +149,7 @@ class EASProposer(AbstractProposer):
             return arch_search_convnet_net2net.np.concatenate(decision_mask, axis=0)
 
     def apply_deeper_decision(deeper_decision, net_configs, kernel_size_list, noise):
+        to_set_layers = []
         if len(net_configs) == 1:
             decision = deeper_decision[0]
             net_config = net_configs[0]
@@ -154,7 +157,6 @@ class EASProposer(AbstractProposer):
             block_decision, layer_idx_decision, ks_decision = decision
             decision_mask = [1.0, 1.0]
             block_idx, _pt = 0, 0
-            to_set_layers = []
             for _i, layer in enumerate(net_config.layer_cascade.layers[:-1]):
                 if _pt == block_decision:
                     real_layer_idx = _i + layer_idx_decision
@@ -191,7 +193,6 @@ class EASProposer(AbstractProposer):
             return arch_search_convnet_net2net.np.array([decision_mask]), to_set_layers
         else:
             decision_mask = []
-            to_set_layers = []
             for _i, net_config in enumerate(net_configs):
                 decision = deeper_decision[_i]
                 mask, to_set = arch_search_convnet_net2net.apply_deeper_decision([decision], [net_config],
@@ -214,8 +215,8 @@ class EASProposer(AbstractProposer):
         self.finished_tasks = 0
         self.results = {}
 
-        self.filter_num_list = [_i for _i in range(4, 44, 4)]
-        self.units_num_list = [_i for _i in range(8, 88, 8)]
+        self.filter_num_list = list(range(4, 44, 4))
+        self.units_num_list = list(range(8, 88, 8))
         # filter_num_list = [16, 32, 64, 96, 128, 192, 256, 320, 384, 448, 512, 576, 640]
         # units_num_list = [64, 128, 256, 384, 512, 640, 768, 896, 1024, 1152, 1280]
         self.kernel_size_list = [1, 3, 5]
@@ -447,7 +448,7 @@ class EASProposer(AbstractProposer):
 
         if (self.finished_tasks == self.episode_batches and len(self.exp_list) == 0):
 
-            logger.info("finished episode" + str(self.episode))
+            logger.info(f"finished episode{str(self.episode)}")
             net_val_list = [-1] * len(self.net_str_list)
             logger.info(self.results)
             logger.info(self.idx_to_task)
@@ -478,7 +479,7 @@ class EASProposer(AbstractProposer):
                 raise Exception("Exceeded Max Episodes")
             self.setup()
 
-            logger.info("Starting Episode " + str(self.episode))
+            logger.info(f"Starting Episode {str(self.episode)}")
 
         logger.debug("***********************Exp_list*****************")
         logger.debug(self.exp_list)

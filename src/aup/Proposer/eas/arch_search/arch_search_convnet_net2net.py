@@ -9,25 +9,24 @@ import numpy as np
 
 
 def get_net_str(net_configs):
-	if isinstance(net_configs, list):
-		if len(net_configs) == 1:
-			net_config = net_configs[0]
-			net_str = []
-			for layer in net_config.layer_cascade.layers[:-1]:
-				if isinstance(layer, ConvLayer):
-					net_str.append('conv-%d-%d' % (layer.filter_num, layer.kernel_size))
-				elif isinstance(layer, FCLayer):
-					net_str.append('fc-%d' % layer.units)
-				else:
-					net_str.append('pool')
-			return ['_'.join(net_str)]
-		else:
-			net_str_list = []
-			for net_config in net_configs:
-				net_str_list += get_net_str([net_config])
-			return net_str_list
-	else:
+	if not isinstance(net_configs, list):
 		return get_net_str([net_configs])[0]
+	if len(net_configs) == 1:
+		net_config = net_configs[0]
+		net_str = []
+		for layer in net_config.layer_cascade.layers[:-1]:
+			if isinstance(layer, ConvLayer):
+				net_str.append('conv-%d-%d' % (layer.filter_num, layer.kernel_size))
+			elif isinstance(layer, FCLayer):
+				net_str.append('fc-%d' % layer.units)
+			else:
+				net_str.append('pool')
+		return ['_'.join(net_str)]
+	else:
+		net_str_list = []
+		for net_config in net_configs:
+			net_str_list += get_net_str([net_config])
+		return net_str_list
 
 
 def get_net_seq(net_configs, vocabulary, num_steps):
@@ -45,9 +44,9 @@ def get_net_seq(net_configs, vocabulary, num_steps):
 
 
 def get_block_layer_num(net_configs):
+	block_layer_num = []
 	if len(net_configs) == 1:
 		net_config = net_configs[0]
-		block_layer_num = []
 		_count = 0
 		for layer in net_config.layer_cascade.layers[:-1]:
 			if isinstance(layer, PoolLayer):
@@ -58,52 +57,47 @@ def get_block_layer_num(net_configs):
 		block_layer_num.append(_count)
 		return np.array([block_layer_num])
 	else:
-		block_layer_num = []
-		for net_config in net_configs:
-			block_layer_num.append(get_block_layer_num([net_config]))
+		block_layer_num.extend(
+		    get_block_layer_num([net_config]) for net_config in net_configs)
 		return np.concatenate(block_layer_num, axis=0)
 
 
 def apply_wider_decision(wider_decision, net_configs, filter_num_list, units_num_list, noise):
+	decision_mask = []
 	if len(net_configs) == 1:
 		decision = wider_decision[0]
 		net_config = net_configs[0]
-		decision_mask = []
 		for _i, layer in enumerate(net_config.layer_cascade.layers[:-1]):
-			if isinstance(layer, ConvLayer):
-				if layer.filter_num >= filter_num_list[-1]:
-					decision_mask.append(0.0)
-				else:
-					decision_mask.append(1.0)
-					if decision[_i]:
-						new_filter_number = layer.filter_num
-						for fn in filter_num_list:
-							if fn > new_filter_number:
-								new_filter_number = fn
-								break
-						net_config.widen(
-							layer_idx=_i, new_width=new_filter_number, noise=noise
-						)
-			elif isinstance(layer, FCLayer):
-				if layer.units >= units_num_list[-1]:
-					decision_mask.append(0.0)
-				else:
-					decision_mask.append(1.0)
-					if decision[_i]:
-						new_units_num = layer.units
-						for un in units_num_list:
-							if un > new_units_num:
-								new_units_num = un
-								break
-						net_config.widen(
-							layer_idx=_i, new_width=new_units_num, noise=noise,
-						)
-			else:
+			if (isinstance(layer, ConvLayer) and layer.filter_num >= filter_num_list[-1]
+			    or not isinstance(layer, ConvLayer) and isinstance(layer, FCLayer)
+			    and layer.units >= units_num_list[-1]
+			    or not isinstance(layer, ConvLayer) and not isinstance(layer, FCLayer)):
 				decision_mask.append(0.0)
+			elif isinstance(layer, ConvLayer):
+				decision_mask.append(1.0)
+				if decision[_i]:
+					new_filter_number = layer.filter_num
+					for fn in filter_num_list:
+						if fn > new_filter_number:
+							new_filter_number = fn
+							break
+					net_config.widen(
+						layer_idx=_i, new_width=new_filter_number, noise=noise
+					)
+			else:
+				decision_mask.append(1.0)
+				if decision[_i]:
+					new_units_num = layer.units
+					for un in units_num_list:
+						if un > new_units_num:
+							new_units_num = un
+							break
+					net_config.widen(
+						layer_idx=_i, new_width=new_units_num, noise=noise,
+					)
 		decision_mask += [0.0] * (len(decision) - len(decision_mask))
 		return np.array([decision_mask])
 	else:
-		decision_mask = []
 		for _i, net_config in enumerate(net_configs):
 			decision = wider_decision[_i]
 			mask = apply_wider_decision([decision], [net_config], filter_num_list, units_num_list, noise)
@@ -112,6 +106,7 @@ def apply_wider_decision(wider_decision, net_configs, filter_num_list, units_num
 
 
 def apply_deeper_decision(deeper_decision, net_configs, kernel_size_list, noise):
+	to_set_layers = []
 	if len(net_configs) == 1:
 		decision = deeper_decision[0]
 		net_config = net_configs[0]
@@ -119,7 +114,6 @@ def apply_deeper_decision(deeper_decision, net_configs, kernel_size_list, noise)
 		block_decision, layer_idx_decision, ks_decision = decision
 		decision_mask = [1.0, 1.0]
 		block_idx, _pt = 0, 0
-		to_set_layers = []
 		for _i, layer in enumerate(net_config.layer_cascade.layers[:-1]):
 			if _pt == block_decision:
 				real_layer_idx = _i + layer_idx_decision
@@ -156,7 +150,6 @@ def apply_deeper_decision(deeper_decision, net_configs, kernel_size_list, noise)
 		return np.array([decision_mask]), to_set_layers
 	else:
 		decision_mask = []
-		to_set_layers = []
 		for _i, net_config in enumerate(net_configs):
 			decision = deeper_decision[_i]
 			mask, to_set = apply_deeper_decision([decision], [net_config], kernel_size_list, noise)

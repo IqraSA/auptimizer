@@ -42,9 +42,9 @@ def main(layer1, layer2):
     (train_x, train_y), (test_x, test_y) = iris_data.load_data()
 
     # Feature columns describe how to use the input.
-    my_feature_columns = []
-    for key in train_x.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+    my_feature_columns = [
+        tf.feature_column.numeric_column(key=key) for key in train_x.keys()
+    ]
 
     # Build 2 hidden layer DNN with 10, 10 units respectively.
     classifier = tf.estimator.DNNClassifier(

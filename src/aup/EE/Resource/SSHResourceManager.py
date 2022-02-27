@@ -291,7 +291,7 @@ class SSHResourceManager(CPUResourceManager):  # pragma: no cover
             if res == "ERROR":
                 if output is not None:
                     self.log_error_message(output)
-                logger.fatal("Unable to run job with id: "+str(job.jid))
+                logger.fatal(f"Unable to run job with id: {str(job.jid)}")
             return res, job.jid
 
         def async_job_run():
@@ -324,7 +324,7 @@ class SSHResourceManager(CPUResourceManager):  # pragma: no cover
                         sftp = open_sftp_with_timeout(remote.client, 5)
 
                         # The job is run by copying over the script and required context, along with setting up the correct environments and preprocessing and post processing scripts.
-                        
+
                         stdout = None
                         if job.was_executed == False:
                             sftp.put(local_config, config_path)
@@ -467,7 +467,7 @@ class SSHResourceManager(CPUResourceManager):  # pragma: no cover
             if res == "ERROR":
                 if output is not None:
                     self.log_error_message(output)
-                logger.fatal("Unable to run job with id: "+str(job.jid))
+                logger.fatal(f"Unable to run job with id: {str(job.jid)}")
             return res, job.jid
 
         def call_back(future3):

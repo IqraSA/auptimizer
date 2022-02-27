@@ -30,15 +30,14 @@ class PassiveResourceManager(AbstractResourceManager):
         self.running = False
 
     def get_available(self, username, rtype):
-        if not self.running:
-            rid = super(PassiveResourceManager, self).get_available(username, rtype)
-            if rid:
-                return rid
-            else:
-                logger.fatal("Resource passive is exhausted.  Free it from the database or create more for testing.")
-                return None
-        else:
+        if self.running:
             return None
+        if rid := super(PassiveResourceManager, self).get_available(
+            username, rtype
+        ):
+            return rid
+        logger.fatal("Resource passive is exhausted.  Free it from the database or create more for testing.")
+        return None
 
     def run(self, job, rid, exp_config, call_back_func, **kwargs):
         job.verify_local()

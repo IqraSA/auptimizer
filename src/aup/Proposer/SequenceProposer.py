@@ -94,15 +94,14 @@ class _IntGen(_AbstractGen):
         self.current = self.min
 
     def get(self, next_flag=True):
-        if next_flag:
-            val = self.current + self.interval
-            if val > self.max:
-                self.current = self.min
-                return self.current, True
-            else:
-                self.current = val
-                return self.current, False
+        if not next_flag:
+            return self.current, False
+        val = self.current + self.interval
+        if val > self.max:
+            self.current = self.min
+            return self.current, True
         else:
+            self.current = val
             return self.current, False
 
 
@@ -122,15 +121,14 @@ class _FloatGen(_AbstractGen):
         self.max += self.interval*0.1 # avoid precision error for comparison.
 
     def get(self, next_flag=True):
-        if next_flag:
-            val = self.current + self.interval
-            if val > self.max:  # loop back
-                self.current = self.min
-                return self.current, True
-            else:
-                self.current = val
-                return self.current, False
+        if not next_flag:
+            return self.current, False
+        val = self.current + self.interval
+        if val > self.max:  # loop back
+            self.current = self.min
+            return self.current, True
         else:
+            self.current = val
             return self.current, False
 
 
@@ -142,15 +140,13 @@ class _ChoiceGen(_AbstractGen):
         self.current = 0
 
     def get(self, next_flag=True):
-        if next_flag:
-            self.current += 1
-            if self.current < self.len:
-                return self.range[self.current], False
-            else:
-                self.current = 0
-                return self.range[self.current], True
-        else:
+        if not next_flag:
             return self.range[self.current], False
+        self.current += 1
+        if self.current < self.len:
+            return self.range[self.current], False
+        self.current = 0
+        return self.range[self.current], True
 
 
 class SequenceProposer(AbstractProposer):
@@ -180,17 +176,15 @@ class SequenceProposer(AbstractProposer):
                 vtype = get_from_options("type:", ("choice", "float", "int"))
                 c = {'name': name, "range": vrange, "type": vtype}
                 if vtype != "choice":
-                    interval = input("interval for grid search, or skip to use total number for this variable:")
-                    if not interval:
+                    if interval := input(
+                        "interval for grid search, or skip to use total number for this variable:"
+                    ):
+                        c['interval'] = float(interval) if vtype == 'float' else int(interval)
+                    else:
                         n = int(input("number of values for this variable [2]:") or 2)
                         if n < 2:
                             raise ValueError("number of values should be larger than 2, or use choice type")
                         c['n'] = n
-                    else:
-                        if vtype == 'float':
-                            c['interval'] = float(interval)
-                        else:
-                            c['interval'] = int(interval)
                 config.append(c)
         except KeyboardInterrupt:
             pass

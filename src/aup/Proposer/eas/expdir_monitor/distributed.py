@@ -56,10 +56,7 @@ class GpuChecker:
 	def is_on(self):
 		try:
 			parse_result = self.state_parser(self.nvidia_getter())
-			if parse_result is None:
-				return False
-			else:
-				return True
+			return parse_result is not None
 		except Exception:
 			return False
 
@@ -156,14 +153,14 @@ class RemoteController:
 		if self.occupied or not self.gpu_state:
 			queue.put([idx, expdir])
 			print("*********************Queue Waiting*******************")
-			print(queue.qsize())
 		else:
 			self._on_running = [idx, expdir]
 			thr = Thread(target=self.remote_executer, args=(idx, expdir, queue))
 			thr.start()
 			self._on_running = None
 			print("*********************Queue Starting*******************")
-			print(queue.qsize())
+
+		print(queue.qsize())
 
 
 class ClusterController:

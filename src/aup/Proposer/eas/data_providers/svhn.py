@@ -54,11 +54,10 @@ class SVHNDataSet(ImagesDataSet):
 		if self.normalization is not None:
 			images_slice = self.normalize_images(
 				images_slice, self.normalization)
-		if images_slice.shape[0] != batch_size:
-			self.start_new_epoch()
-			return self.next_batch(batch_size)
-		else:
+		if images_slice.shape[0] == batch_size:
 			return images_slice, labels_slice
+		self.start_new_epoch()
+		return self.next_batch(batch_size)
 
 
 class SVHNDataProvider(DataProvider):
@@ -84,19 +83,13 @@ class SVHNDataProvider(DataProvider):
 		self._save_path = save_path
 		train_images = []
 		train_labels = []
-		if include_extra:
-			train_data_src = ['train', 'extra']
-		else:
-			train_data_src = ['train']
+		train_data_src = ['train', 'extra'] if include_extra else ['train']
 		for part in train_data_src:
 			images, labels = self.get_images_and_labels(part, one_hot)
 			train_images.append(images)
 			train_labels.append(labels)
 		train_images = np.vstack(train_images)
-		if one_hot:
-			train_labels = np.vstack(train_labels)
-		else:
-			train_labels = np.hstack(train_labels)
+		train_labels = np.vstack(train_labels) if one_hot else np.hstack(train_labels)
 		if validation_size is not None:
 			np.random.seed(DataProvider._SEED)
 			rand_indexes = np.random.permutation(train_images.shape[0])
@@ -106,20 +99,20 @@ class SVHNDataProvider(DataProvider):
 			train_images, train_labels = train_images[train_indexes], train_labels[train_indexes]
 			self.validation = SVHNDataSet(
 				valid_images, valid_labels, False, normalization)
-		
+
 		self.train = SVHNDataSet(
 			train_images, train_labels, shuffle, normalization)
-		
+
 		test_images, test_labels = self.get_images_and_labels('test', one_hot)
 		self.test = SVHNDataSet(test_images, test_labels, False, normalization)
-		
+
 		if validation_size is None:
 			self.validation = self.test
 	
 	def get_images_and_labels(self, name_part, one_hot=False):
 		url = self.data_url + name_part + '_32x32.mat'
 		download_data_url(url, self.save_path)
-		filename = os.path.join(self.save_path, name_part + '_32x32.mat')
+		filename = os.path.join(self.save_path, f'{name_part}_32x32.mat')
 		data = scipy.io.loadmat(filename)
 		images = data['X'].transpose(3, 0, 1, 2)
 		labels = data['y'].reshape((-1))

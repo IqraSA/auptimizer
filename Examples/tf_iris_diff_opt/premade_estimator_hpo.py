@@ -47,14 +47,11 @@ def main(conf):
     # Fetch the data
     (train_x, train_y), (test_x, test_y) = iris_data.load_data()
 
-    if "n_iterations" in config:
-        train_steps = 100 * config.n_iterations
-    else:
-        train_steps = 1000
+    train_steps = 100 * config.n_iterations if "n_iterations" in config else 1000
     # Feature columns describe how to use the input.
-    my_feature_columns = []
-    for key in train_x.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+    my_feature_columns = [
+        tf.feature_column.numeric_column(key=key) for key in train_x.keys()
+    ]
 
     # Build 2 hidden layer DNN with 10, 10 units respectively.
     classifier = tf.estimator.DNNClassifier(

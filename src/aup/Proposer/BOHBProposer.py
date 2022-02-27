@@ -203,7 +203,7 @@ class BOHBProposer(AbstractProposer):
 
     @staticmethod
     def setup_config():  # pragma: no cover
-        config = dict()
+        config = {}
         for k, v in BOHB_DEFAULT.items():
             if k == "min_points_in_model":
                 config[k] = input("%s [%s]:" % (k, v))

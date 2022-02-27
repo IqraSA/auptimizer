@@ -85,7 +85,7 @@ class SpearmintProposer(AbstractProposer):
 
         for param in config["parameter_config"]:
             p = self.parse_param_config(param)
-            if "job_id" == p['name']:
+            if p['name'] == "job_id":
                 msg = "`job_id` is preserved for HPO"
                 logger.fatal(msg)
                 raise ValueError(msg)
@@ -105,10 +105,14 @@ class SpearmintProposer(AbstractProposer):
 
     @staticmethod
     def setup_config():  # pragma: no cover
-        config = dict()
         logger.critical("The following step only setup the basic configuration, edit file direct for advanced tuning.")
-        config['engine'] = get_from_options("HPO Engine, `engine`,", ["GPEIOptChooser"])
-        config['engine_config'] = dict()
+        config = {
+            'engine': get_from_options(
+                "HPO Engine, `engine`,", ["GPEIOptChooser"]
+            ),
+            'engine_config': {},
+        }
+
         config['grid_size'] = int(input("Grid size for hyperparameters, `grid_size`, [20000]:") or 20000)
         config['n_samples'] = int(input("number of model samples to draw randomly, `n_samples`, [1]:") or 1)
         config['random_seed'] = int(input("random seed, `random_seed`, [0]:") or 0)

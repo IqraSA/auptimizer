@@ -26,13 +26,16 @@ df = pd.DataFrame({"model":[], "alpha":[], "size":[], "op": [], "size_init":[],
 
 def preprocess(name):
     try:
-        process = subprocess.Popen(" wget " + STORAGE_LINK + name + ".tgz ", shell=True).wait()
+        process = subprocess.Popen(
+            f" wget {STORAGE_LINK}{name}.tgz ", shell=True
+        ).wait()
+
     except:
         print("Could not retrieve")
         return 0
 
     try:
-        process = subprocess.Popen(" tar -xzf " + name + ".tgz", shell=True).wait()
+        process = subprocess.Popen(f" tar -xzf {name}.tgz", shell=True).wait()
     except:
         print("Could not unpack")
         return 0
@@ -41,8 +44,12 @@ def preprocess(name):
 
 def push_to_device(name):
     try:
-        process = subprocess.Popen(ADB_LOCAL + " push " + name + ".tflite /data/local/tmp/",
-                                   shell=True, stdout=subprocess.DEVNULL).wait()
+        process = subprocess.Popen(
+            f'{ADB_LOCAL} push {name}.tflite /data/local/tmp/',
+            shell=True,
+            stdout=subprocess.DEVNULL,
+        ).wait()
+
     except:
         print("Could not push")
         return 0
@@ -98,46 +105,42 @@ def compile_results(infer, memo, df, of, op, alpha, size):
     return df
 
 def convert(name, size, op):
-    json_dic = {}
-    json_dic["convert_from"] = name+"_frozen.pb"
-    json_dic["convert_to"] = name+"_"+op+"_converted.tflite"
-    json_dic["input_nodes"] = "input"
-    json_dic["output_nodes"] = "MobilenetV1/Predictions/Reshape_1:0"
+    json_dic = {
+        "convert_from": f'{name}_frozen.pb',
+        "convert_to": f'{name}_{op}_converted.tflite',
+        "input_nodes": "input",
+        "output_nodes": "MobilenetV1/Predictions/Reshape_1:0",
+    }
+
     command = ""
     if op == 'float':
         command = json.dumps([json_dic])
     if op == 'float16':
-        quant_dic = {}
-        quant_dic["type"]="float16"
-        quant_dic["opsset"] = "tf"
+        quant_dic = {"type": "float16", "opsset": "tf"}
         json_dic["quantization"] = quant_dic
         command = json.dumps([json_dic])
     if op == 'int8':
-        quant_dic = {}
-        quant_dic["type"]="int8"
-        quant_dic["opsset"] = "int8"
+        quant_dic = {"type": "int8", "opsset": "int8"}
         quant_dic["load"] = REP_DATA + " --custom_data '1," + size + "," + size + "," + "3,1000' --undefok custom_data"
         json_dic["quantization"] = quant_dic
         command = json.dumps([json_dic])
     if op == 'uint8':
-        quant_dic = {}
-        quant_dic["type"]="uint8"
-        quant_dic["opsset"] = "tf"
+        quant_dic = {"type": "uint8", "opsset": "tf"}
         quant_dic["load"] = REP_DATA + " --custom_data '1," + size + "," + size + "," + "3,1000' --undefok custom_data"
         json_dic["quantization"] = quant_dic
         command = json.dumps([json_dic])
     try:
         process = subprocess.Popen("python3 -m aup.dlconvert -d " + "'" + str(command)  + "'", shell=True).wait()
     except:
-        print("Could not Convert= " + str(command))
+        print(f"Could not Convert= {str(command)}")
         return 0
     return 1
     
 for key in KEYS:
 
-    name = MOBILENET + "_" + key[0] + "_" + key[1]
+    name = f'{MOBILENET}_{key[0]}_{key[1]}'
 
-    print("Starting " + str(name))
+    print(f"Starting {str(name)}")
 
     if(not preprocess(name)):
         continue
@@ -149,9 +152,9 @@ for key in KEYS:
 
     df = compile_results(infer, memo, df, "official", "float", key[0], key[1])
 
-    new_name = name + "_quant"
+    new_name = f'{name}_quant'
 
-    print("Starting " + str(new_name))
+    print(f"Starting {str(new_name)}")
 
     if(not preprocess(new_name)):
         continue
@@ -162,7 +165,7 @@ for key in KEYS:
     infer,memo = run_benchmark(new_name)
 
     df = compile_results(infer, memo , df, "official", "int8", key[0], key[1])
-    
+
     print("Starting converted tflite benchmarking")
 
     for op in OP_TYPE:
@@ -170,12 +173,12 @@ for key in KEYS:
         converted = convert(name, key[1], op)
 
         if not converted:
-            print("Failed " + str(name) + " " + str(op))
+            print(f"Failed {str(name)} {str(op)}")
             continue
 
-        print("testing= " + str(name) + " " + str(op))
+        print(f"testing= {str(name)} {str(op)}")
 
-        new_name = name + "_" + op + "_converted"
+        new_name = f'{name}_{op}_converted'
 
         if(not push_to_device(new_name)):
             continue
@@ -183,6 +186,6 @@ for key in KEYS:
         infer,memo = run_benchmark(new_name)
 
         df = compile_results(infer, memo, df, "converted", str(op), key[0], key[1])
-        
+
 print(df.to_string())
 df.to_pickle("./data_mobilenet.pkl")

@@ -35,7 +35,7 @@ class KernelDensityEstimator(base_config_generator):
 		self.top_n_percent = top_n_percent
 		self.update_after_n_points = update_after_n_points
 		self.configspace = configspace
-		
+
 		self.min_points_in_model = min_points_in_model
 		if min_points_in_model is None:
 			self.min_points_in_model = len(self.configspace.get_hyperparameters())+1
@@ -43,9 +43,9 @@ class KernelDensityEstimator(base_config_generator):
 
 		# TODO: so far we only consider continuous configuration spaces
 		self.var_type = "c" * len(self.configspace.get_hyperparameters())
-		self.configs = dict()
-		self.losses = dict()
-		self.kde_models = dict()
+		self.configs = {}
+		self.losses = {}
+		self.kde_models = {}
 		
 	def get_config(self, budget):
 		"""

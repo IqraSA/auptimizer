@@ -55,24 +55,23 @@ class H2BO(base_config_generator):
 		self.min_points_in_model = min_points_in_model
 		if min_points_in_model is None:
 			self.min_points_in_model = len(self.configspace.get_hyperparameters())+1
-		
+
 		#if self.min_points_in_model < len(self.configspace.get_hyperparameters())+1:
 		#	self.logger.warning('Invalid min_points_in_model value. Setting it to %i'%(len(self.configspace.get_hyperparameters())+1))
 		#	self.min_points_in_model =len(self.configspace.get_hyperparameters())+1
-		
+
 		self.num_samples = num_samples
 		self.random_fraction = random_fraction
 
-		self.configs = dict()
-		self.losses = dict()
-		self.good_config_rankings = dict()
-		self.kde_models = dict()
+		self.configs = {}
+		self.losses = {}
+		self.good_config_rankings = {}
+		self.kde_models = {}
 
 
 	def largest_budget_with_model(self):
-		if len(self.kde_models) == 0:
-			return(-np.inf)
-		return(max(self.kde_models.keys()))
+		return ((-np.inf) if len(self.kde_models) == 0 else
+		        (max(self.kde_models.keys())))
 
 	def get_config(self, budget):
 		"""
@@ -155,11 +154,7 @@ class H2BO(base_config_generator):
 				else:
 					# no good point in the data has this value activated, so fill it with a valid but random value
 					t = self.vartypes[nan_idx]
-					if t == 0:
-						datum[nan_idx] = np.random.rand()
-					else:
-						datum[nan_idx] = np.random.randint(t)
-
+					datum[nan_idx] = np.random.rand() if t == 0 else np.random.randint(t)
 				nan_indices = np.argwhere(np.isnan(datum)).flatten()
 			return_array[i,:] = datum
 		return(return_array)
@@ -182,20 +177,14 @@ class H2BO(base_config_generator):
 
 		super().new_result(job)
 
-		if job.result is None:
-			# One could skip crashed results, but we decided 
-			# assign a +inf loss and count them as bad configurations
-			loss = np.inf
-		else:
-			loss = job.result["loss"]
-
+		loss = np.inf if job.result is None else job.result["loss"]
 		budget = job.kwargs["budget"]
 
 		if budget not in self.configs.keys():
 			self.configs[budget] = []
 			self.losses[budget] = []
-	
-			
+
+
 		if len(self.configs.keys()) == 1:
 			min_num_points = 6
 		else:
@@ -209,11 +198,11 @@ class H2BO(base_config_generator):
 		# We want to get a numerical representation of the configuration in the original space
 
 		conf = ConfigSpace.Configuration(self.configspace, job.kwargs["config"]).get_array().tolist()
-		
-			
+
+
 		#import pdb; pdb.set_trace()
-		
-		
+
+
 		if conf in self.configs[budget]:
 			i = self.configs[budget].index(conf)
 			self.losses[budget][i].append(loss)
@@ -223,10 +212,10 @@ class H2BO(base_config_generator):
 			self.configs[budget].append(conf)
 			self.losses[budget].append([loss])
 
-		
+
 		# skip model building:
 		#		a) if not enough points are available
-		
+
 		tmp = np.array([np.mean(r) for r in self.losses[budget]])
 		if np.sum(np.isfinite(tmp)) < min_num_points:
 			self.logger.debug("Only %i successful run(s) for budget %f available, need more than %s -> can't build model!"%(np.sum(np.isfinite(tmp)), budget, min_num_points))
@@ -247,7 +236,7 @@ class H2BO(base_config_generator):
 
 		#import pdb; pdb.set_trace()
 		num_configs = len(self.losses[budget])
-		
+
 		train_configs = np.array(self.configs[budget][-num_configs:])
 		train_losses =  np.array(list(map(np.mean, self.losses[budget][-num_configs:])))
 
@@ -263,8 +252,8 @@ class H2BO(base_config_generator):
 
 		self.kde_models[budget]['bad'].fit(train_data_bad, bw_estimator=self.bw_estimator)
 		self.kde_models[budget]['good'].fit(train_data_good, bw_estimator=self.bw_estimator)
-		
-		
+
+
 		if self.bw_estimator in ['mlcv'] and n_good < 3:
 			self.kde_models[budget]['good'].bandwidths[:] = self.kde_models[budget]['bad'].bandwidths
 

@@ -49,15 +49,16 @@ class RandomSearch(Master):
 		self.eta = eta
 		self.min_budget = max_budget
 		self.max_budget = max_budget
-		
-		
+
+
 		# precompute some HB stuff
 		self.max_SH_iter = -int(np.log(min_budget/max_budget)/np.log(eta)) + 1
 		self.budgets = max_budget * np.power(eta, -np.linspace(self.max_SH_iter-1, 0, self.max_SH_iter))
 
 		# max total budget for one iteration
-		self.budget_per_iteration = sum([b*self.eta**i for i, b in enumerate(self.budgets[::-1])])
-		
+		self.budget_per_iteration = sum(
+		    b * self.eta**i for i, b in enumerate(self.budgets[::-1]))
+
 		self.config.update({
 						'eta'        : eta,
 						'min_budget' : max_budget,

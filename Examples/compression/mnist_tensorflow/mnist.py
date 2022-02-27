@@ -31,7 +31,7 @@ input_shape = (28, 28, 1)
 
 
 def get_model(**kwargs):
-    model = keras.Sequential(
+    return keras.Sequential(
       [
           keras.Input(shape=input_shape),
           layers.Conv2D(kwargs['conv1'], kernel_size=(3, 3), activation="relu"),
@@ -44,15 +44,13 @@ def get_model(**kwargs):
       ]
     )
 
-    return model
-
     
 def test_model(model, test_dataset):
-  correct = []
-  for (batch, (images, labels)) in enumerate(test_dataset):
-    logits = model(images)
-    correct += list(labels.numpy() == np.argmax(logits.numpy(), axis=1))
-  return np.mean(correct)
+    correct = []
+    for images, labels in test_dataset:
+        logits = model(images)
+        correct += list(labels.numpy() == np.argmax(logits.numpy(), axis=1))
+    return np.mean(correct)
 
 
 def main(config):

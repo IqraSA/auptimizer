@@ -37,8 +37,7 @@ def get_magnifier(old_size, indices):
 	_l = np.zeros(old_size)
 	for x in indices:
 		_l[x] += 1
-	magnifier = (1.0 / _l)[indices]
-	return magnifier
+	return (1.0 / _l)[indices]
 
 
 def get_random_remapping(old_size, new_size):
@@ -79,23 +78,23 @@ class BaseLayer:
 	def param_initializer(self):
 		if self._init is None:
 			return None
-		param_initializer = {}
-		for key in self.variable_list.keys():
-			if self._init[key] is not None:
-				param_initializer[key] = tf.constant_initializer(self._init[key])
-		if len(param_initializer) == 0:
+		param_initializer = {
+		    key: tf.constant_initializer(self._init[key])
+		    for key in self.variable_list.keys() if self._init[key] is not None
+		}
+		if not param_initializer:
 			param_initializer = None
 		return param_initializer
 	
 	def renew_init(self, net: BasicModel):
 		if net is None:
 			return copy.deepcopy(self._init)
-		
+
 		self._init = {}
 		for key, var_name in self.variable_list.items():
 			var = net.graph.get_tensor_by_name('%s/%s' % (self._scope, var_name))
 			self._init[key] = net.sess.run(var)
-		if len(self._init) == 0:
+		if not self._init:
 			self._init = None
 		return copy.deepcopy(self._init)
 	

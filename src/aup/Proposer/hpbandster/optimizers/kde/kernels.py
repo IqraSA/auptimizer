@@ -14,12 +14,12 @@ class BaseKernel(object):
 		self.data = data
 		self.bw = bandwidth
 		self.fix_boundary=fix_boundary
-		
+
 		if num_values is None:
 			num_values = len(np.unique(data))
 		self.num_values = num_values
-		
-		if not data is None:
+
+		if data is not None:
 			self.weights = self._compute_weights()	
 
 	def set_bandwidth(self, bandwidth):
@@ -138,8 +138,7 @@ class WangRyzinOrdinal(BaseKernel):
 		self.weights=1.
 		x_test = np.arange(self.num_values)
 		pdfs  = self.__call__(x_test)
-		weights = 1./pdfs.sum(axis=1)[:,None]
-		return(weights)
+		return 1./pdfs.sum(axis=1)[:,None]
 		
 	def __call__(self, x_test):
 		distances = x_test[None,:] - self.data[:,None]

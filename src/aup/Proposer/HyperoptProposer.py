@@ -96,8 +96,12 @@ class HyperoptProposer(AbstractProposer):
 
     @staticmethod
     def setup_config():  # pragma: no cover
-        config = dict()
-        config['n_samples'] = int(input("number of model samples, `n_samples`, [1]:") or 1)
+        config = {
+            'n_samples': int(
+                (input("number of model samples, `n_samples`, [1]:") or 1)
+            )
+        }
+
         config['random_seed'] = int(input("random seed, `random_seed`, [0]:") or 0)
         config['engine'] = get_from_options("search engine, `engine`", ['tpe', 'random'])
         config.update(AbstractProposer.setup_config())

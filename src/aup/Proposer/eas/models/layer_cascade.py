@@ -28,11 +28,7 @@ class LayerCascade:
 	
 	@property
 	def depth(self):
-		depth = 0
-		for layer in self.layers:
-			if isinstance(layer, ConvLayer) or isinstance(layer, FCLayer):
-				depth += 1
-		return depth
+		return sum(isinstance(layer, (ConvLayer, FCLayer)) for layer in self.layers)
 	
 	def get_str(self):
 		layers_str = [layer.layer_str for layer in self.layers]
@@ -70,10 +66,7 @@ class LayerCascade:
 			layer_init = init['layers'][_i] if init is not None else None
 			layer = get_layer_by_name(layer_config['name'])
 			layers.append(layer.set_from_config(layer_config, layer_init))
-		if return_class:
-			return LayerCascade(_id, layers)
-		else:
-			return _id, layers
+		return LayerCascade(_id, layers) if return_class else (_id, layers)
 	
 	"""
 	Network Transformation Operations
@@ -81,7 +74,7 @@ class LayerCascade:
 	
 	def prev_widen(self, indices, magnifier, noise=None):
 		for layer in self.layers:
-			if isinstance(layer, ConvLayer) or isinstance(layer, FCLayer):
+			if isinstance(layer, (ConvLayer, FCLayer)):
 				layer.prev_widen(indices, magnifier, noise=noise)
 				break
 			else:
@@ -89,32 +82,31 @@ class LayerCascade:
 	
 	def widen(self, idx, new_width, widen_type='output_dim', noise=None):
 		assert idx < len(self.layers), 'Index out of range: %d' % idx
-		if widen_type == 'output_dim':
-			assert isinstance(self.layers[idx], ConvLayer) or \
-				   isinstance(self.layers[idx], FCLayer), 'Operation not available'
-			to_widen_layer = self.layers[idx]
-			
-			if isinstance(to_widen_layer, ConvLayer):
-				indices, magnifier = to_widen_layer.widen_filters(new_filter_num=new_width, noise=noise)
-			else:
-				indices, magnifier = to_widen_layer.widen_units(new_units_num=new_width, noise=noise)
-			after_widen_layer = None
-			for _i in range(idx + 1, len(self.layers)):
-				if isinstance(self.layers[_i], ConvLayer) or isinstance(self.layers[_i], FCLayer):
-					self.layers[_i].prev_widen(indices, magnifier, noise=noise)
-					after_widen_layer = self.layers[_i]
-					break
-				else:
-					self.layers[_i].prev_widen(indices, magnifier, noise=noise)
-			return after_widen_layer is None, indices, magnifier
-		else:
+		if widen_type != 'output_dim':
 			raise ValueError('%s is not supported' % widen_type)
+		assert isinstance(self.layers[idx],
+		                  (ConvLayer, FCLayer)), 'Operation not available'
+		to_widen_layer = self.layers[idx]
+
+		if isinstance(to_widen_layer, ConvLayer):
+			indices, magnifier = to_widen_layer.widen_filters(new_filter_num=new_width, noise=noise)
+		else:
+			indices, magnifier = to_widen_layer.widen_units(new_units_num=new_width, noise=noise)
+		after_widen_layer = None
+		for _i in range(idx + 1, len(self.layers)):
+			if isinstance(self.layers[_i], (ConvLayer, FCLayer)):
+				self.layers[_i].prev_widen(indices, magnifier, noise=noise)
+				after_widen_layer = self.layers[_i]
+				break
+			else:
+				self.layers[_i].prev_widen(indices, magnifier, noise=noise)
+		return after_widen_layer is None, indices, magnifier
 	
 	def deepen(self, idx, new_layer_config, input_dim):
 		assert idx < len(self.layers), 'Index out of range: %d' % idx
 		if new_layer_config['name'] == 'fc':
 			assert idx == len(self.layers) - 1 or isinstance(self.layers[idx + 1], FCLayer), 'Invalid'
-			assert isinstance(self.layers[idx], FCLayer) or isinstance(self.layers[idx], PoolLayer), 'Invalid'
+			assert isinstance(self.layers[idx], (FCLayer, PoolLayer)), 'Invalid'
 			# prepare the new fc layer
 			units = input_dim
 			for _i in range(idx, -1, -1):
@@ -124,21 +116,17 @@ class LayerCascade:
 				elif isinstance(self.layers[_i], ConvLayer):
 					units = self.layers[_i].filter_num
 					break
-			fc_idx = 0
-			for _i in range(0, idx + 1):
-				if isinstance(self.layers[_i], FCLayer):
-					fc_idx += 1
+			fc_idx = sum(isinstance(self.layers[_i], FCLayer) for _i in range(idx + 1))
 			_id = 'fc_%d' % fc_idx
 			# change the id of following fc layers
 			for _i in range(idx + 1, len(self.layers)):
 				if isinstance(self.layers[_i], FCLayer):
 					self.layers[_i].id = 'fc_%d' % (fc_idx + 1)
 					fc_idx += 1
-			prev_layer = None
-			for _i in range(idx, -1, -1):
-				if self.layers[_i].ready:
-					prev_layer = self.layers[_i]
-					break
+			prev_layer = next(
+			    (self.layers[_i] for _i in range(idx, -1, -1) if self.layers[_i].ready),
+			    None,
+			)
 			assert prev_layer is not None, 'Invalid'
 			new_fc_layer = FCLayer(_id, units, ready=False, **new_layer_config)
 			# insert the new layer into the cascade
@@ -146,28 +134,24 @@ class LayerCascade:
 			return new_fc_layer, prev_layer
 		elif new_layer_config['name'] == 'conv':
 			assert idx == len(self.layers) - 1 or not isinstance(self.layers[idx + 1], FCLayer), 'Invalid'
-			assert isinstance(self.layers[idx], ConvLayer) or isinstance(self.layers[idx], FCLayer), 'Invalid'
+			assert isinstance(self.layers[idx], (ConvLayer, FCLayer)), 'Invalid'
 			# prepare the new conv layer
 			filter_num = input_dim
 			for _i in range(idx, -1, -1):
 				if isinstance(self.layers[_i], ConvLayer):
 					filter_num = self.layers[_i].filter_num
 					break
-			conv_idx = 0
-			for _i in range(0, idx + 1):
-				if isinstance(self.layers[_i], ConvLayer):
-					conv_idx += 1
+			conv_idx = sum(isinstance(self.layers[_i], ConvLayer) for _i in range(idx + 1))
 			_id = 'conv_%d' % conv_idx
 			# change the id of following conv layers
 			for _i in range(idx + 1, len(self.layers)):
 				if isinstance(self.layers[_i], ConvLayer):
 					self.layers[_i].id = 'conv_%d' % (conv_idx + 1)
 					conv_idx += 1
-			prev_layer = None
-			for _i in range(idx, -1, -1):
-				if self.layers[_i].ready:
-					prev_layer = self.layers[_i]
-					break
+			prev_layer = next(
+			    (self.layers[_i] for _i in range(idx, -1, -1) if self.layers[_i].ready),
+			    None,
+			)
 			assert prev_layer is not None, 'Invalid'
 			new_conv_layer = ConvLayer(_id, filter_num, ready=False, **new_layer_config)
 			self.layers = self.layers[:idx + 1] + [new_conv_layer] + self.layers[idx + 1:]

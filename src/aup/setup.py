@@ -170,7 +170,7 @@ def setup(config, cpu, gpu, node, aws, user, overwrite, log):
         config.write(f)
     logger.info("Following commands are being executed:")
     for i, command in enumerate(pending_commands):
-        logger.info("Executing command: " + command)
+        logger.info(f"Executing command: {command}")
         rflag = os.system(command)
         if rflag != 0:
             logger.fatal("Failed in setup commands\nFollowing commands need finish manually (and debug):\n %s",

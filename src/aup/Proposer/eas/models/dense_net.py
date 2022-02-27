@@ -56,10 +56,7 @@ class DenseBlock:
 	
 	@property
 	def depth(self):
-		depth = 0
-		for miniblock in self.miniblocks:
-			depth += miniblock.depth
-		return depth
+		return sum(miniblock.depth for miniblock in self.miniblocks)
 	
 	def out_features_dim(self, in_features_dim):
 		out_features_dim = in_features_dim
@@ -105,70 +102,63 @@ class DenseBlock:
 	"""
 	def insert_miniblock(self, idx, miniblock_config, input_dim, noise=None, scheme=0):
 		assert 0 <= idx < len(self.miniblocks), 'Invalid miniblock index %d' % idx
-		if miniblock_config['bc_mode']:
-			# DenseNet-BC
-			if scheme == 0:
-				copy_idx = idx
-				copy_miniblock = self.miniblocks[copy_idx]
-				new_in_bottle = copy_miniblock.in_bottle.copy()
-				new_in_layer = new_in_bottle.layers[0]
-				pad_kernel_shape = list(new_in_layer.init['kernel'].shape)
-				pad_kernel_shape[2] = copy_miniblock.out_features_dim
-				new_in_layer.init['kernel'] = \
-					np.concatenate([new_in_layer.init['kernel'], np.zeros(pad_kernel_shape)], axis=2)
-				if new_in_layer.pre_activation and new_in_layer.use_bn:
-					new_in_layer.init['beta'] = \
-						np.concatenate([new_in_layer.init['beta'], np.zeros([copy_miniblock.out_features_dim])])
-					new_in_layer.init['gamma'] = \
-						np.concatenate([new_in_layer.init['gamma'], np.ones([copy_miniblock.out_features_dim])])
-					new_in_layer.init['moving_mean'] = \
-						np.concatenate([new_in_layer.init['moving_mean'], np.zeros([copy_miniblock.out_features_dim])])
-					new_in_layer.init['moving_variance'] = \
-						np.concatenate([new_in_layer.init['moving_variance'], np.ones([copy_miniblock.out_features_dim])])
-				new_in_layer.init['kernel'] = apply_noise(new_in_layer.init['kernel'], noise.get('wider'))
-				if copy_miniblock.out_bottle is None:
-					new_branches, indices = copy_miniblock.remapped_branches(noise=noise)
-					new_miniblock = LayerMultiBranch('M_%d' % (idx + 2), new_branches,
-													 merge=copy_miniblock.merge, in_bottle=new_in_bottle)
-					old_size = len(indices)
-					indices = np.concatenate([np.arange(old_size), indices])
-					magnifier = get_magnifier(old_size, indices)
-					
-					prev_miniblock_out_dim = input_dim
-					for _i in range(0, idx):
-						prev_miniblock_out_dim += self.miniblocks[_i].out_features_dim
-					indices = np.concatenate([
-						np.arange(prev_miniblock_out_dim),
-						indices + prev_miniblock_out_dim,
-					])
-					magnifier = np.concatenate([
-						[1] * prev_miniblock_out_dim,
-						magnifier,
-					])
-					prev_miniblock_out_dim += old_size
-					for _i in range(idx + 1, len(self.miniblocks)):
-						miniblock_out_dim = self.miniblocks[_i].out_features_dim
-						self.miniblocks[_i].id = 'M_%d' % (_i + 2)
-						self.miniblocks[_i].prev_widen(indices, magnifier, noise=noise)
-						indices = np.concatenate([
-							indices,
-							np.arange(prev_miniblock_out_dim, prev_miniblock_out_dim + miniblock_out_dim)
-						])
-						magnifier = np.concatenate([
-							magnifier,
-							[1] * miniblock_out_dim,
-						])
-						prev_miniblock_out_dim += miniblock_out_dim
-					self.miniblocks = self.miniblocks[:idx + 1] + [new_miniblock] + self.miniblocks[idx + 1:]
-					return indices, magnifier
-				else:
-					raise NotImplementedError
-			else:
-				# identity scheme
-				raise NotImplementedError
-		else:
-			# DenseNet without BC
+		if not miniblock_config['bc_mode'] or scheme != 0:
+			# identity scheme
 			raise NotImplementedError
+		copy_idx = idx
+		copy_miniblock = self.miniblocks[copy_idx]
+		new_in_bottle = copy_miniblock.in_bottle.copy()
+		new_in_layer = new_in_bottle.layers[0]
+		pad_kernel_shape = list(new_in_layer.init['kernel'].shape)
+		pad_kernel_shape[2] = copy_miniblock.out_features_dim
+		new_in_layer.init['kernel'] = \
+			np.concatenate([new_in_layer.init['kernel'], np.zeros(pad_kernel_shape)], axis=2)
+		if new_in_layer.pre_activation and new_in_layer.use_bn:
+			new_in_layer.init['beta'] = \
+				np.concatenate([new_in_layer.init['beta'], np.zeros([copy_miniblock.out_features_dim])])
+			new_in_layer.init['gamma'] = \
+				np.concatenate([new_in_layer.init['gamma'], np.ones([copy_miniblock.out_features_dim])])
+			new_in_layer.init['moving_mean'] = \
+				np.concatenate([new_in_layer.init['moving_mean'], np.zeros([copy_miniblock.out_features_dim])])
+			new_in_layer.init['moving_variance'] = \
+				np.concatenate([new_in_layer.init['moving_variance'], np.ones([copy_miniblock.out_features_dim])])
+		new_in_layer.init['kernel'] = apply_noise(new_in_layer.init['kernel'], noise.get('wider'))
+		if copy_miniblock.out_bottle is not None:
+			raise NotImplementedError
+		new_branches, indices = copy_miniblock.remapped_branches(noise=noise)
+		new_miniblock = LayerMultiBranch('M_%d' % (idx + 2), new_branches,
+										 merge=copy_miniblock.merge, in_bottle=new_in_bottle)
+		old_size = len(indices)
+		indices = np.concatenate([np.arange(old_size), indices])
+		magnifier = get_magnifier(old_size, indices)
+
+		prev_miniblock_out_dim = input_dim
+		for _i in range(idx):
+			prev_miniblock_out_dim += self.miniblocks[_i].out_features_dim
+		indices = np.concatenate([
+			np.arange(prev_miniblock_out_dim),
+			indices + prev_miniblock_out_dim,
+		])
+		magnifier = np.concatenate([
+			[1] * prev_miniblock_out_dim,
+			magnifier,
+		])
+		prev_miniblock_out_dim += old_size
+		for _i in range(idx + 1, len(self.miniblocks)):
+			miniblock_out_dim = self.miniblocks[_i].out_features_dim
+			self.miniblocks[_i].id = 'M_%d' % (_i + 2)
+			self.miniblocks[_i].prev_widen(indices, magnifier, noise=noise)
+			indices = np.concatenate([
+				indices,
+				np.arange(prev_miniblock_out_dim, prev_miniblock_out_dim + miniblock_out_dim)
+			])
+			magnifier = np.concatenate([
+				magnifier,
+				[1] * miniblock_out_dim,
+			])
+			prev_miniblock_out_dim += miniblock_out_dim
+		self.miniblocks = self.miniblocks[:idx + 1] + [new_miniblock] + self.miniblocks[idx + 1:]
+		return indices, magnifier
 	
 	def prev_widen(self, indices, magnifier, noise=None):
 		old_size = np.max(indices) + 1
@@ -194,7 +184,7 @@ class DenseBlock:
 		change_out_dim, indices, magnifier = miniblock.widen(loc, new_width, widen_type, noise=noise)
 		if change_out_dim:
 			prev_miniblock_out_dim = input_dim
-			for _i in range(0, miniblock_idx):
+			for _i in range(miniblock_idx):
 				prev_miniblock_out_dim += self.miniblocks[_i].out_features_dim
 			indices = np.concatenate([
 				np.arange(prev_miniblock_out_dim),
@@ -223,7 +213,7 @@ class DenseBlock:
 	
 	def deepen(self, loc, new_layer_config, input_dim):
 		miniblock_idx = loc['miniblock']
-		for _i in range(0, miniblock_idx):
+		for _i in range(miniblock_idx):
 			input_dim += self.miniblocks[_i].out_features_dim
 		return self.miniblocks[miniblock_idx].deepen(loc, new_layer_config, input_dim)
 		
@@ -265,10 +255,7 @@ class DenseNetConfig:
 	
 	@property
 	def depth(self):
-		depth = 0
-		for block in self.blocks:
-			depth += block.depth
-		return depth
+		return sum(block.depth for block in self.blocks)
 	
 	@property
 	def average_growth_rate(self):
@@ -447,7 +434,7 @@ class DenseNetConfig:
 					task_list[task_id] = (prev_layer, [new_layer])
 			else:
 				new_layer.set_identity_layer(strict=strict, noise=noise)
-		if len(task_list) > 0:
+		if task_list:
 			model = DenseNet(None, data_provider, None, net_config=self, only_forward=True)
 			task_list = list(task_list.values())
 			fetches = [prev_layer.output_op for prev_layer, _ in task_list]

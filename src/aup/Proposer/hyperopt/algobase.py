@@ -61,11 +61,7 @@ class ExprEvaluator(object):
         self.memo_gc = memo_gc
 
     def eval_nodes(self, memo=None):
-        if memo is None:
-            memo = {}
-        else:
-            memo = dict(memo)
-
+        memo = {} if memo is None else dict(memo)
         # TODO: optimize dfs to not recurse past the items in memo
         #       this is especially important for evaluating Lambdas
         #       which cause rec_eval to recurse
@@ -170,23 +166,21 @@ class ExprEvaluator(object):
         #    switch node.
         #
         switch_i_var = node.pos_args[0]
-        if switch_i_var in memo:
-            switch_i = memo[switch_i_var]
-            try:
-                int(switch_i)
-            except:
-                raise TypeError('switch argument was', switch_i)
-            if switch_i != int(switch_i) or switch_i < 0:
-                raise ValueError('switch pos must be positive int',
-                                 switch_i)
-            rval_var = node.pos_args[switch_i + 1]
-            if rval_var in memo:
-                self.set_in_memo(memo, node, memo[rval_var])
-                return
-            else:
-                return [rval_var]
-        else:
+        if switch_i_var not in memo:
             return [switch_i_var]
+        switch_i = memo[switch_i_var]
+        try:
+            int(switch_i)
+        except:
+            raise TypeError('switch argument was', switch_i)
+        if switch_i != int(switch_i) or switch_i < 0:
+            raise ValueError('switch pos must be positive int',
+                             switch_i)
+        rval_var = node.pos_args[switch_i + 1]
+        if rval_var not in memo:
+            return [rval_var]
+        self.set_in_memo(memo, node, memo[rval_var])
+        return
 
     def on_node(self, memo, node):
         # -- Retrieve computed arguments of apply node
@@ -245,16 +239,14 @@ class SuggestAlgo(ExprEvaluator):
             cmd=self.domain.cmd,
             workdir=self.domain.workdir)
         miscs_update_idxs_vals([new_misc], idxs, vals)
-        rval = self.trials.new_trial_docs(
+        return self.trials.new_trial_docs(
             [new_id], [None], [new_result], [new_misc])
-        return rval
 
     def on_node(self, memo, node):
-        if node in self.label_by_node:
-            label = self.label_by_node[node]
-            return self.on_node_hyperparameter(memo, node, label)
-        else:
+        if node not in self.label_by_node:
             return ExprEvaluator.on_node(self, memo, node)
+        label = self.label_by_node[node]
+        return self.on_node_hyperparameter(memo, node, label)
 
     def batch(self, new_ids):
         new_ids = list(new_ids)

@@ -14,8 +14,9 @@ from hpbandster.core.base_iteration import Datum
 def nic_name_to_host(nic_name):
 	""" translates the name of a network card into a valid host name"""
 	from netifaces import ifaddresses, AF_INET
-	host = ifaddresses(nic_name).setdefault(AF_INET, [{'addr': 'No IP addr'}] )[0]['addr']
-	return(host)
+	return ifaddresses(nic_name).setdefault(AF_INET, [{
+	    'addr': 'No IP addr'
+	}])[0]['addr']
 
 
 
@@ -39,18 +40,14 @@ def start_local_nameserver(host=None, port=0, nic_name=None):
 	"""
 	
 	if host is None:
-		if nic_name is None:
-			host = 'localhost'
-		else:
-			host = nic_name_to_host(nic_name)
-
+		host = 'localhost' if nic_name is None else nic_name_to_host(nic_name)
 	uri, ns, _ = Pyro4.naming.startNS(host=host, port=port)
 	host, port = ns.locationStr.split(':')
-	
-	
+
+
 	thread = threading.Thread(target=ns.requestLoop, name='Pyro4 nameserver started by HpBandSter')
 	thread.daemon=True
-	
+
 	thread.start()
 	return(host, int(port))
 

@@ -77,7 +77,10 @@ class Experiment:
         self.job_retries = 0
         self.exp_config = _verify_config(exp_config)
         self.resource_args = None
-        self.connector = connector if connector else get_default_connector(auppath=auppath, log=logger)
+        self.connector = connector or get_default_connector(
+            auppath=auppath, log=logger
+        )
+
         self.username = get_default_username(username)
         self.is_compression_exp = False
         self.compression_params = []
@@ -199,7 +202,7 @@ class Experiment:
         self.request_stop_thr = threading.Thread(target=self._check_status)
         self.request_stop_thr.start()
 
-        for i in range(parallel_jobs - len(self.pending_jobs)):
+        for _ in range(parallel_jobs - len(self.pending_jobs)):
             rc = self.submit_job()
             self.submitted = self.submitted or rc
             if not self.submitted:

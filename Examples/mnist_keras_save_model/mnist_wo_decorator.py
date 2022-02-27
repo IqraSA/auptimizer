@@ -128,15 +128,15 @@ def save_model_fun(model):
 
 if __name__ == '__main__':
 
-  if len(sys.argv) < 2:
-      print("config file required")
-      exit(1)
+    if len(sys.argv) < 2:
+        print("config file required")
+        exit(1)
 
-  config = BasicConfig()
-  config.load(sys.argv[1])
+    config = BasicConfig()
+    config.load(sys.argv[1])
 
-  val = do_train(**config)
-  print(str(val))
+    val = do_train(**config)
+    print(val)
 
-  print_result(val)
+    print_result(val)
 

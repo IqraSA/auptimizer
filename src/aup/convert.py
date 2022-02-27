@@ -72,15 +72,12 @@ def add_shenbang(script):
     """
     Makes the Python script executable.
     """
-    if script.splitlines()[0][:2] != "#!":
-        #
-        if os.name == "posix":
-            return "#!/usr/bin/env python\n" + script
-        else:
-            logging.critical('Be cautious, add #!"C:\\Python33\\python.exe", make sure it executable on Windows')
-            return '#!"C:\\Python33\\python.exe\n' + script
-    else:
+    if script.splitlines()[0][:2] == "#!":
         return script
+    if os.name == "posix":
+        return "#!/usr/bin/env python\n" + script
+    logging.critical('Be cautious, add #!"C:\\Python33\\python.exe", make sure it executable on Windows')
+    return '#!"C:\\Python33\\python.exe\n' + script
 
 
 def add_main(script):

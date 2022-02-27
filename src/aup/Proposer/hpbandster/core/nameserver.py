@@ -9,8 +9,9 @@ import Pyro4.naming
 def nic_name_to_host(nic_name):
 	""" helper function to translate the name of a network card into a valid host name"""
 	from netifaces import ifaddresses, AF_INET
-	host = ifaddresses(nic_name).setdefault(AF_INET, [{'addr': 'No IP addr'}] )[0]['addr']
-	return(host)
+	return ifaddresses(nic_name).setdefault(AF_INET, [{
+	    'addr': 'No IP addr'
+	}])[0]['addr']
 
 
 class NameServer(object):
@@ -54,7 +55,7 @@ class NameServer(object):
 			tuple (str, int):
 				the host name and the used port
 		"""
-	
+
 		if self.host is None:
 			if self.nic_name is None:
 				self.host = 'localhost'
@@ -65,17 +66,17 @@ class NameServer(object):
 
 		self.host, self.port = self.pyro_ns.locationStr.split(':')
 		self.port = int(self.port)
-		
+
 		thread = threading.Thread(target=self.pyro_ns.requestLoop, name='Pyro4 nameserver started by HpBandSter')
 		thread.start()
 
-		if not self.dir is None:
+		if self.dir is not None:
 			os.makedirs(self.dir, exist_ok=True)
 			self.conf_fn = os.path.join(self.dir, 'HPB_run_%s_pyro.pkl'%self.run_id)
 
 			with open(self.conf_fn, 'wb') as fh:
 				pickle.dump((self.host, self.port), fh)
-		
+
 		return(self.host, self.port)
 
 
@@ -83,11 +84,11 @@ class NameServer(object):
 		"""
 			clean shutdown of the nameserver and the config file (if written)
 		"""
-		if not self.pyro_ns is None:
+		if self.pyro_ns is not None:
 			self.pyro_ns.shutdown()
 			self.pyro_ns = None
-		
-		if not self.conf_fn is None:
+
+		if self.conf_fn is not None:
 			os.remove(self.conf_fn)
 			self.conf_fn = None
 

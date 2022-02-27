@@ -38,7 +38,7 @@ def rosenbrock(x, a=2, b=4, c=5):
     it = 1.0
     res = None
 
-    for _ in range(0, 10):
+    for _ in range(10):
         sleep(1)
         res = x*x*a + x*b + c
         res += it

@@ -49,30 +49,29 @@ if __name__ == '__main__':
 	parser.add_argument(
 		'--dataset', type=str, default='C10+', choices=['C10', 'C10+', 'C100', 'C100+'],
 	)
-	
+
 	parser.add_argument('--path', type=str, default='')
 	parser.add_argument('--save_config', action='store_true', help='Whether to save config in the path')
 	parser.add_argument('--save_init', action='store_true')
 	parser.add_argument('--load_model', action='store_true')
-	
+
 	args = parser.parse_args()
-	if args.dataset in ['C10', 'C100', 'C10+', 'C100+']:
-		run_config_cifar['dataset'] = args.dataset
-		run_config = RunConfig(**run_config_cifar)
-		net_config = standard_net_config_cifar
-	else:
+	if args.dataset not in ['C10', 'C100', 'C10+', 'C100+']:
 		raise ValueError
+	run_config_cifar['dataset'] = args.dataset
+	run_config = RunConfig(**run_config_cifar)
+	net_config = standard_net_config_cifar
 	if len(args.path) == 0:
 		args.path = '../trained_nets/DenseNet/vs=%s_%s_%s_L=%d_K=%d_%s' % \
 					(run_config.validation_size, os.uname()[1], net_config['model_type'], net_config['depth'],
 					 net_config['growth_rate'], run_config.dataset)
-	
+
 	if run_config.dataset in ['C10+', 'C100+']:
 		net_config['keep_prob'] = 1.0
 	if standard_net_config_cifar['model_type'] == 'DenseNet':
 		net_config['reduction'] = 1.0
 	if args.test: args.load_model = True
-	
+
 	# print configurations
 	print('Run config:')
 	for k, v in run_config.get_config().items():
@@ -80,19 +79,19 @@ if __name__ == '__main__':
 	print('Network config:')
 	for k, v in net_config.items():
 		print('\t%s: %s' % (k, v))
-	
+
 	print('Prepare training data...')
 	data_provider = get_data_provider_by_name(run_config.dataset, run_config.get_config())
-	
+
 	# set net config
 	net_config = DenseNetConfig().set_standard_dense_net(data_provider=data_provider, **net_config)
 	print('Initialize the model...')
 	model = DenseNet(args.path, data_provider, run_config, net_config)
-	
+
 	# save configs
 	if args.save_config:
 		model.save_config(args.path)
-		
+
 	if args.load_model: model.load_model()
 	if args.test:
 		# test

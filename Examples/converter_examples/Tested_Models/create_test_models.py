@@ -35,24 +35,21 @@ class Test_Model_Classification(object):
         self.func = getattr(models, model_name)
 
     def create_model(self):
-        model = self.func()
-        return model
+        return self.func()
 
 class Test_Model_Segmentation(object):
     def __init__(self, model_name):
         self.func = getattr(models.segmentation, model_name)
 
     def create_model(self):
-        model = self.func()
-        return model
+        return self.func()
 
 class Test_Model_Video(object):
     def __init__(self, model_name):
         self.func = getattr(models.video, model_name)
 
     def create_model(self):
-        model = self.func()
-        return model
+        return self.func()
 
 def create_torch_cnn_models():
     
@@ -65,7 +62,7 @@ def create_torch_cnn_models():
         model = Test_Model_Classification(model_name).create_model()
         model.eval()
         y = model(x)
-        save_path = "test_models/" + model_name + ".pt"
+        save_path = f"test_models/{model_name}.pt"
         torch.save(model, save_path)
         print("Created Pytorch model saved to", save_path)
 
@@ -75,7 +72,7 @@ def create_torch_cnn_models():
         model = Test_Model_Segmentation(model_name).create_model()
         model.eval()
         y = model(x)
-        save_path = "test_models/" + model_name + ".pt"
+        save_path = f"test_models/{model_name}.pt"
         torch.save(model, save_path)
         print("Created Pytorch model saved to", save_path)
 
@@ -85,7 +82,7 @@ def create_torch_cnn_models():
         model = Test_Model_Video(model_name).create_model()
         model.eval()
         y = model(x)
-        save_path = "test_models/" + model_name + ".pt"
+        save_path = f"test_models/{model_name}.pt"
         torch.save(model, save_path)
         print("Created Pytorch model saved to", save_path)
 
@@ -93,8 +90,8 @@ def create_keras_cnn_models():
     for cls_name in keras_model_list:
         model_func = getattr(applications, cls_name)
         model = model_func(weights = None)
-        save_path = "test_models/" + cls_name + ".h5"
-        model.save(save_path) 
+        save_path = f"test_models/{cls_name}.h5"
+        model.save(save_path)
         print("Created Keras model saved to", save_path)
 
 def create_tf_lstm_model():
